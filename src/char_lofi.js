@@ -1,12 +1,65 @@
-// Lofi the Yeti (official design): tall lanky humanoid in shaggy white fur, blue frog face, blue fists and bare feet. Faces +z.
+// Lofi the Yeti (official design): tall lanky yeti in soft shaggy white fur, big blue Pepe-style frog face, blue fists and bare blue feet. Faces +z.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE, toon, outline } from './style.js';
-import { Animator, blob, grp, humanoid, groundRig, tufts, furMat, gait, add, mix, hit, seq, smooth, clamp, lerp, emissiveFlash, addRim, TAU } from './char_core.js';
+import { Animator, blob, grp, humanoid, groundRig, furMat, gait, add, mix, hit, seq, smooth, clamp, lerp, emissiveFlash, addRim, rng, surf, surfN, TAU } from './char_core.js';
 
 const GAIT = { leg: .62, knee: 1.15, kneeBase: .1, arm: .5, elb: .5, elbV: .28, bob: .05, twist: .2, sway: .07, shift: .03, lean: .14, leanV: .03, headV: .05 };
 const DEFS = { idle: { loop: true }, run: { loop: true }, dash: { loop: true }, celebrate: { loop: true }, attack: { dur: 1.05, impact: .48, next: 'idle' }, strike: { dur: .4, impact: .17, next: 'idle' }, hit: { dur: .55, next: 'idle' }, death: { dur: 1.3, hold: true }, alias: { walk: 'run', slam: 'attack', cheer: 'celebrate', die: 'death', idle: 'idle' } };
 const KF = (...a) => a;
-const SKIN = 0x5f8fd0, SKIN_D = 0x4a74b4, FUR_SHADE = 0xaeb4cc;
+const SKIN = 0x6c9bdc, SKIN_D = 0x4d76ba, SKIN_L = 0x8fb6ea, FUR_SHADE = 0xc4c9dc, FUR_MID = 0xe0e4f0;
+
+// ---- soft shaggy tuft geometry -------------------------------------------------
+// rounded teardrop: fat rounded base, bulging belly, blunt tapered tip. +Y is the length axis.
+function tuftGeo(len, rad, flat, seed) {
+  const R = rng(seed), N = 7, pts = [];
+  for (let i = 0; i <= N; i++) {
+    const s = i / N;
+    let r = Math.pow(Math.sin(Math.PI * Math.pow(s, .62)), .62) * (1 - .18 * s);
+    if (s > .8) { const u = (s - .8) / .2; r *= Math.sqrt(Math.max(0, 1 - u * u)); }
+    pts.push(new THREE.Vector2(Math.max(r * rad, .0006), s * len));
+  }
+  const g = new THREE.LatheGeometry(pts, 7);
+  g.scale(1, 1, flat);
+  const p = g.attributes.position, c = new Float32Array(p.count * 3), col = new THREE.Color(), L = len;
+  for (let i = 0; i < p.count; i++) {
+    const t = clamp(p.getY(i) / L);
+    p.setY(i, p.getY(i) - t * t * L * .18);
+    p.setX(i, p.getX(i) + t * t * L * (R() - .5) * .1);
+    col.setHex(FUR_SHADE).lerp(new THREE.Color(FUR_MID), smooth(0, .45, t)).lerp(new THREE.Color(0xffffff), smooth(.5, .92, t));
+    c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+// a shaggy coat of layered tufts over an ellipsoid; returns one merged geometry
+function shag(d, n, len, rad, seed, { down = 1.0, out = 1.15, rows = 5, lenVar = .5, radVar = .3, flat = .6, skip, ring = .97, side = 0, jitter = .28, tone = 1 } = {}) {
+  const R = rng(seed), geos = [], up = new THREE.Vector3(0, 1, 0), q = new THREE.Quaternion(), m = new THREE.Matrix4(), v = new THREE.Vector3();
+  const per = Math.max(3, Math.round(n / rows));
+  for (let r = 0; r < rows; r++) {
+    const el = lerp(1.28, -1.15, rows === 1 ? .5 : r / (rows - 1)), band = 1 - .3 * Math.abs(el) / 1.3;
+    for (let i = 0; i < per; i++) {
+      const az = (i + (r % 2) * .5 + (R() - .5) * jitter) / per * TAU, e = el + (R() - .5) * .26;
+      const p = surf(d, az, e, ring), nr = surfN(d, p);
+      if (skip && skip(nr, p)) continue;
+      const L = len * band * (1 - lenVar + R() * lenVar * 2), W = rad * (1 - radVar + R() * radVar * 2);
+      const dir = nr.clone().multiplyScalar(out * (1 + (R() - .35) * .5)).add(new THREE.Vector3(0, -down, 0)).add(new THREE.Vector3((R() - .5) * .35, 0, (R() - .5) * .35)).normalize();
+      const g = tuftGeo(L, W, flat + (R() - .5) * .12, seed * 131 + r * 17 + i);
+      // shade: grey on the flanks and undersides, white on top and on the back ridge
+      const flank = Math.abs(nr.x), low = Math.max(0, -nr.y);
+      const k = clamp((flank * .3 + low * .4 + side * .5) * .8) * tone;
+      const col = g.attributes.color, tmp = new THREE.Color();
+      for (let vi = 0; vi < col.count; vi++) { tmp.fromBufferAttribute(col, vi).lerp(new THREE.Color(FUR_SHADE), k * .55); col.setXYZ(vi, tmp.r, tmp.g, tmp.b); }
+      q.setFromUnitVectors(up, dir).multiply(new THREE.Quaternion().setFromAxisAngle(up, R() * TAU));
+      m.compose(p, q, new THREE.Vector3(1, 1, 1));
+      g.applyMatrix4(m);
+      geos.push(g);
+    }
+  }
+  return geos.length ? mergeGeometries(geos) : new THREE.BufferGeometry();
+}
 
 const strike = (u, alt) => {
   const A = alt ? 'R' : 'L', B = alt ? 'L' : 'R', k = alt ? -1 : 1;
@@ -36,68 +89,99 @@ const death = u => seq({
   'armL.rx': KF([0, 0], [.3, -.8], [.8, .5], [1, .4]), 'armR.rx': KF([0, 0], [.3, -.8], [.8, .3], [1, .5]), 'armL.rz': KF([0, 0], [1, .35]), 'armR.rz': KF([0, 0], [1, -.35]),
   'elbL.rx': KF([0, 0], [1, -.3]), 'elbR.rx': KF([0, 0], [1, -.3]), 'mouth.open': KF([0, 0], [.3, .5], [1, .2]), 'eyeL.sy': KF([0, 0], [.4, -.4], [1, -.8]), 'eyeR.sy': KF([0, 0], [.4, -.4], [1, -.8]), 'mouth.smile': KF([0, 0], [1, -.6]),
 }, u);
-const base = { 'armL.rz': .1, 'armR.rz': -.1, 'elbL.rx': -.14, 'elbR.rx': -.14, 'armL.rx': 0, 'torso.rx': .05, 'head.rx': .06, 'mouth.smile': -.45 };
+const base = { 'armL.rz': .12, 'armR.rz': -.12, 'elbL.rx': -.16, 'elbR.rx': -.16, 'armL.rx': 0, 'torso.rx': .07, 'head.rx': .05, 'mouth.smile': -.45 };
 
 export function makeLofi() {
-  const furC = toon(0xffffff, { emissive: 0xf0f2fc, emissiveIntensity: .75 }); addRim(furC, 0x8ae6ff, 2.2, .9);
-  const skin = toon(SKIN, { emissive: 0x2c4f94, emissiveIntensity: .3 }); addRim(skin, 0x9cc4ff, 2.4, .45);
-  const tuftM = furMat(); tuftM.polygonOffset = true; tuftM.polygonOffsetFactor = 2; tuftM.polygonOffsetUnits = 2; tuftM.emissive.set(0xe4e8f6); tuftM.emissiveIntensity = .6;
+  const furC = toon(0xffffff, { emissive: 0xeff2fc, emissiveIntensity: .55 }); addRim(furC, 0x8ae6ff, 2.4, .55);
+  const skin = toon(SKIN, { emissive: 0x2c4f94, emissiveIntensity: .22 }); addRim(skin, 0x9cc4ff, 2.4, .4);
+  const skinM = toon(SKIN_D, { emissive: 0x24406f, emissiveIntensity: .2 }), skinL = toon(SKIN_L, { emissive: 0x40649f, emissiveIntensity: .2 });
+  const tuftM = furMat(); tuftM.polygonOffset = true; tuftM.polygonOffsetFactor = 1.5; tuftM.polygonOffsetUnits = 1.5; tuftM.emissive.set(0xe6e9f6); tuftM.emissiveIntensity = .34;
+
   const { root: body, j, parts } = humanoid({
-    hipsY: 1, pelvis: [.25, .17, .2], pelvisY: .04, torsoY: .05, torso: { dims: [.34, .42, .24], cy: .37 }, head: { y: .82, z: .03, cy: .21, dims: [.26, .28, .24] },
-    arm: { x: .39, y: .66, upper: [.125, .56], fore: [.115, .54], hand: [.15, .16, .135] }, leg: { x: .16, thigh: [.15, .58], shin: [.125, .56], foot: [.13, .06, .26] }, mat: furC, skin, th: .022,
+    hipsY: .94, pelvis: [.185, .15, .155], pelvisY: .05, torsoY: .02, torso: { dims: [.20, .315, .165], cy: .29 },
+    head: { y: .585, z: .085, cy: .285, dims: [.225, .22, .20] },
+    arm: { x: .245, y: .50, upper: [.115, .31], fore: [.10, .28], hand: [.145, .135, .13] },
+    leg: { x: .135, thigh: [.125, .38], shin: [.115, .40], foot: [.15, .075, .30] }, mat: furC, skin, th: .018,
   });
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig); rig.add(body);
+  body.rotation.x = .035;
 
+  // ---------------- fur coat ----------------
   const fur = [];
-  const clump = (host, d, n, len, rad, seed, o) => {
-    const tg = tufts(d, Math.round(n * 1.3), len, rad, seed, { tipR: .12, side: 0xb9bfd0, base: FUR_SHADE, down: 2, lenVar: .35, jitter: .1, droop: .35, ...o }), m = new THREE.Mesh(tg, tuftM);
-    outline(m, .008, PALETTE.ink); host.add(m); return m;
+  const coat = (host, d, n, len, rad, seed, o) => {
+    const m = new THREE.Mesh(shag(d, n, len, rad, seed, o), tuftM);
+    outline(m, .012, PALETTE.ink); host.add(m); return m;
+  };
+  // two layers: big soft clumps for the shape, a finer coat on top for shag texture
+  const mane = (host, d, n, len, seed, o = {}) => {
+    const big = shag(d, n, len, len * .52, seed, { rows: 3, out: 1.25, down: 1.05, lenVar: .55, ring: .92, ...o });
+    const fine = shag(d.map(v => v * 1.03), Math.round(n * 1.7), len * .58, len * .3, seed + 7, { rows: 4, out: .9, down: 1.35, lenVar: .5, ring: .98, side: (o.side || 0) * .6, tone: 1.9, skip: o.skip });
+    const m = new THREE.Mesh(mergeGeometries([big, fine]), tuftM);
+    outline(m, .012, PALETTE.ink); host.add(m); return m;
   };
   const sway = (g, k, ph) => { fur.push({ g, k, ph, a: 0, av: 0, b: 0, bv: 0 }); return g; };
-  const T = (part, n, len, rad, seed, o) => clump(part, part.userData.dims, n, len, rad, seed, o);
-  T(parts.torso, 26, .15, .11, 1, { skip: nr => Math.abs(nr.x) < .5 }); T(parts.pelvis, 10, .18, .09, 2);
-  T(parts.head, 12, .14, .08, 3, { down: .5, skip: nr => nr.z > .45 && nr.y < .7 && Math.abs(nr.x) < .85 });
-  for (const n of ['L', 'R']) {
-    const s = n === 'L' ? 0 : 20;
-    T(parts['upper' + n], 7, .15, .1, 4 + s, { skip: nr => nr.z > .5 }); T(parts['fore' + n], 6, .17, .09, 5 + s, { down: 1.2 });
-    T(parts['thigh' + n], 7, .15, .1, 6 + s, { skip: nr => nr.z > .5 }); T(parts['shin' + n], 6, .16, .09, 7 + s, { down: 1.0 });
-    const fr = sway(grp(j['elb' + n], 0, -.3, 0), 1, s); clump(fr, [.1, .05, .1], 6, .13, .07, 40 + s, { down: 5, skip: nr => nr.y > .2 });
-    const fr2 = sway(grp(j['knee' + n], 0, -.3, 0), .7, s + 1); clump(fr2, [.1, .05, .1], 6, .13, .07, 50 + s, { down: 5, skip: nr => nr.y > .2 });
-    const man = sway(grp(j.torso, (n === 'L' ? 1 : -1) * .22, .76, 0), .8, s + 2); clump(man, [.14, .08, .13], 4, .15, .08, 60 + s, { down: 5, skip: nr => nr.y < -.2 });
-  }
-  const skirt = sway(grp(j.hips, 0, .02, 0), .6, 3); clump(skirt, [.25, .05, .21], 12, .27, .09, 70, { down: 4.5, skip: nr => nr.y > .2 });
-  const chestM = sway(grp(j.torso, 0, .2, .02), .5, 4); clump(chestM, [.3, .05, .2], 12, .26, .09, 71, { down: 4.5, skip: nr => nr.y > .2 });
-  const crest = sway(grp(j.head, 0, .44, -.02), 1.6, 5); clump(crest, [.19, .06, .17], 9, .26, .07, 72, { down: -.6, droop: .6, tip: 0xffffff, skip: nr => nr.y < -.1 });
-  const ruff = sway(grp(j.head, 0, .03, 0), 1, 6); clump(ruff, [.25, .06, .22], 10, .16, .07, 73, { down: 3, skip: nr => nr.z > .5 && Math.abs(nr.x) < .7 });
+  const D = p => p.userData.dims, S = (p, k = 1.02) => D(p).map(v => v * k);
 
-  const ink = new THREE.MeshBasicMaterial({ color: PALETTE.ink }), white = new THREE.MeshBasicMaterial({ color: 0xffffff }), skinFlat = toon(SKIN_D, { emissive: 0x28467f, emissiveIntensity: .3 });
+  mane(parts.torso, S(parts.torso), 13, .30, 1, { side: .16, skip: nr => nr.z > .6 && Math.abs(nr.x) < .55 && nr.y < .5 });
+  mane(parts.pelvis, S(parts.pelvis), 10, .30, 2, { side: .18 });
+  mane(parts.head, S(parts.head, 1.0), 13, .21, 3, { out: 1.0, side: .08, skip: nr => nr.z > .3 && Math.abs(nr.x) < .92 && nr.y < .8 });
+  for (const n of ['L', 'R']) {
+    const s = n === 'L' ? 0 : 60;
+    mane(parts['upper' + n], S(parts['upper' + n]), 7, .26, 4 + s, { side: .1 });
+    mane(parts['fore' + n], S(parts['fore' + n]), 6, .24, 5 + s, { down: 1.2, side: .1 });
+    mane(parts['thigh' + n], S(parts['thigh' + n]), 8, .27, 6 + s, { side: .12 });
+    mane(parts['shin' + n], S(parts['shin' + n]), 7, .25, 7 + s, { down: 1.2, side: .12 });
+    // wrist + ankle cuffs, hanging outward, soft secondary motion
+    const wr = sway(grp(j['elb' + n], 0, -.40, 0), 1.1, s + 3), an = sway(grp(j['knee' + n], 0, -.46, 0), .8, s + 5);
+    coat(wr, [.105, .05, .095], 9, .16, .06, 44 + s, { rows: 2, down: 2.4, out: .5, ring: 1.0 });
+    coat(an, [.115, .05, .10], 9, .15, .06, 54 + s, { rows: 2, down: 2.6, out: .45, ring: 1.0, skip: nr => nr.y < -.55 });
+  }
+  // bushy skirt of fur at the hips + chest mane, big shoulder ruff
+  const skirt = sway(grp(j.hips, 0, .10, 0), .7, 3);
+  coat(skirt, [.21, .07, .19], 11, .34, .11, 70, { rows: 2, down: 3, out: .5, ring: 1.0, skip: nr => nr.y > .35 });
+  const chest = sway(grp(j.torso, 0, .30, 0), .6, 4);
+  coat(chest, [.22, .08, .19], 10, .30, .105, 71, { rows: 2, down: 3, out: .5, ring: 1.0, skip: nr => nr.y > .4 });
+  const ruff = sway(grp(j.torso, 0, .46, 0), 1.0, 6);
+  coat(ruff, [.30, .10, .27], 18, .32, .115, 73, { rows: 3, down: 2.2, out: .85, ring: 1.0, skip: nr => nr.z > .6 && Math.abs(nr.x) < .5 });
+  const crest = sway(grp(j.head, 0, .205, -.02), 1.5, 5);
+  coat(crest, [.19, .07, .16], 10, .22, .07, 72, { rows: 2, down: -.5, out: .35, ring: 1.0, skip: nr => nr.y < .1 });
+
+  // ---------------- hands, feet ----------------
+  const ink = new THREE.MeshBasicMaterial({ color: PALETTE.ink }), white = new THREE.MeshBasicMaterial({ color: 0xffffff });
   for (const n of ['L', 'R']) {
     const s = n === 'L' ? 1 : -1;
-    for (let i = 0; i < 4; i++) { const f = blob(.032, .05, .035, skin, .011, 8); f.position.set(s * (i - 1.5) * -.055, -.12, .12); f.rotation.x = -.5; j['hand' + n].add(f); }
-    const th = blob(.035, .055, .035, skin, .011, 8); th.position.set(s * .14, -.06, .08); th.rotation.z = s * -.7; j['hand' + n].add(th);
-    for (let i = 0; i < 5; i++) { const t = blob(.03 - Math.abs(i - 2) * .002, .03, .036, skin, .01, 8); t.position.set(s * (i - 2) * -.048, -.015, .23 - Math.abs(i - 2) * .014); parts['foot' + n].add(t); }
+    for (let i = 0; i < 4; i++) { const f = blob(.038, .05, .042, skinM, .008, 8); f.position.set(s * (i - 1.5) * -.06, -.055, .10); f.rotation.x = -.35; j['hand' + n].add(f); }
+    const th = blob(.045, .075, .045, skinM, .009, 8); th.position.set(s * .125, -.035, .045); th.rotation.z = s * -.55; j['hand' + n].add(th);
+    for (let i = 0; i < 4; i++) { const t = blob(.042 - Math.abs(i - 1.5) * .004, .038, .055, skinM, .008, 8); t.position.set(s * (i - 1.5) * -.062, -.035, .155); parts['foot' + n].add(t); }
   }
 
-  const head = parts.head, mask = blob(.235, .16, .1, skin, .014, 14); mask.position.set(0, -.02, .22); head.add(mask);
+  // ---------------- face ----------------
+  const head = parts.head, dH = D(parts.head);
+  const mask = blob(.205, .17, .125, skin, .012, 18); mask.position.set(0, -.025, .10); head.add(mask);
+  const brow = blob(.18, .045, .045, skinL, .007, 14); brow.position.set(0, .11, .15); brow.rotation.x = -.3; head.add(brow);
+  const bridge = blob(.035, .075, .03, skin, .005, 10); bridge.position.set(0, .045, .195); head.add(bridge);
   const eyes = {}, lids = {};
   for (const s of [1, -1]) {
-    const n = s > 0 ? 'L' : 'R', ring = blob(.088, .084, .035, skinFlat, .008, 10); ring.position.set(s * .1, .06, .295); head.add(ring);
-    const e = eyes[n] = grp(head, s * .1, .06, .312), ball = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), ink); ball.scale.set(.062, .068, .03); e.add(ball);
-    const gl = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), white); gl.scale.set(.016, .02, .01); gl.position.set(.018 * s, .02, .022); e.add(gl);
-    const gl2 = gl.clone(); gl2.scale.set(.008, .008, .006); gl2.position.set(-.014 * s, -.018, .024); e.add(gl2); j['eye' + n] = e;
-    const lid = lids[n] = grp(head, s * .1, .06, .318), lm = blob(.074, .04, .03, skinFlat, .008, 10); lm.position.y = .038; lid.add(lm); lid.userData.y0 = .06;
+    const n = s > 0 ? 'L' : 'R', ex = s * .087, ey = .025;
+    const ring = blob(.062, .066, .026, skinM, .005, 12); ring.position.set(ex, ey, .19); ring.rotation.z = s * .08; head.add(ring);
+    const e = eyes[n] = grp(head, ex, ey, .2), ball = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 12), ink); ball.scale.set(.047, .052, .022); e.add(ball);
+    const gl = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), white); gl.scale.set(.017, .018, .011); gl.position.set(.013 * s, .017, .013); e.add(gl);
+    const gl2 = gl.clone(); gl2.scale.set(.007, .007, .005); gl2.position.set(-.015 * s, -.013, .014); e.add(gl2); j['eye' + n] = e;
+    // heavy droopy upper lid, sitting over the top third of the eye
+    const lid = lids[n] = grp(head, ex, ey, .205), lm = blob(.06, .04, .024, skin, .005, 12); lm.position.y = .036; lid.add(lm); lid.userData.y0 = ey;
   }
-  const lip = blob(.15, .05, .05, toon(0x7ba2dd, { emissive: 0x3a62a8, emissiveIntensity: .25 }), 0, 12); lip.position.set(0, -.15, .24); head.add(lip);
-  const nostril = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 6), ink); nostril.scale.set(.007, .005, .004); for (const s of [1, -1]) { const q = nostril.clone(); q.position.set(s * .02, -.015, .322); head.add(q); }
-  const mouth = j.mouth = grp(head, 0, -.085, .318), arc = new THREE.Mesh(new THREE.TorusGeometry(.19, .012, 6, 24, Math.PI), ink); arc.scale.set(1, .38, 1); arc.position.y = -.0; mouth.add(arc);
-  const open = j.mouthOpen = blob(.16, .08, .02, new THREE.MeshBasicMaterial({ color: 0x1a1030 }), 0, 12); open.position.set(0, -.02, -.01); mouth.add(open);
-  const teeth = new THREE.Mesh(new THREE.BoxGeometry(.24, .02, .01), white); teeth.position.set(0, .022, .014); open.add(teeth);
+  const mouth = j.mouth = grp(head, 0, -.108, .195);
+  const lipLine = new THREE.Mesh(new THREE.TorusGeometry(.108, .019, 6, 24, Math.PI), ink); lipLine.scale.set(1, .22, 1); lipLine.rotation.z = Math.PI; mouth.add(lipLine);
+  const open = j.mouthOpen = blob(.09, .058, .02, new THREE.MeshBasicMaterial({ color: 0x1a1030 }), 0, 12); open.position.set(0, .014, -.004); mouth.add(open);
+  const teeth = new THREE.Mesh(new THREE.BoxGeometry(.12, .016, .01), white); teeth.position.set(0, .032, .012); open.add(teeth);
+  for (const s of [1, -1]) { const nr = blob(.017, .011, .013, skinM, .003, 6); nr.position.set(s * .026, -.055, .205); head.add(nr); }
+  const chin = blob(.105, .045, .05, skin, .007, 10); chin.position.set(0, -.16, .155); head.add(chin);
 
   const groundBox = groundRig(body, j.hips);
-  const mats = [furC, skin, tuftM, skinFlat];
+  const mats = [furC, skin, tuftM, skinM, skinL];
   const an = new Animator(j, DEFS, pose, .16);
   const st = { speed: null, nextBlink: 1.5, blinkT: -1, blink: 0, time: 0, pos: new THREE.Vector3(), vx: 0, vz: 0, turn: 0, yaw: 0, hy: 0, vyH: 0, init: false };
-  rig.scale.setScalar(2.2 / (groundBox.max.y - groundBox.min.y + .02)); rig.scale.x *= .9; rig.scale.z *= .9;
+  rig.scale.setScalar(2.2 / (groundBox.max.y - groundBox.min.y + .02));
 
   function idleD(t) {
     const b = Math.sin(TAU * t / 3.4), b2 = Math.sin(TAU * t / 3.4 - .7), s6 = Math.sin(TAU * t / 6.8);
@@ -164,13 +248,16 @@ export function makeLofi() {
       const ang = clamp(-(an.pose['mouth.smile'] || 0), -1, 1);
       for (const n of ['L', 'R']) {
         const s = n === 'L' ? 1 : -1, shut = clamp(st.blink - (an.pose['eye' + n + '.sy'] || 0), 0, 1);
-        j['eye' + n].scale.set(1, Math.max(.08, 1 - .85 * shut), 1);
-        lids[n].position.y = .115 - .065 * shut; lids[n].scale.y = 1 + .5 * shut; lids[n].rotation.z = s * -(.04 + .25 * Math.max(0, ang - .4));
+        j['eye' + n].scale.set(1, Math.max(.06, 1 - .8 * shut), 1);
+        // heavy droopy upper lid: hangs lower as the character frowns or blinks
+        lids[n].position.y = .012 - .062 * shut - .012 * Math.max(0, ang - .3);
+        lids[n].scale.y = 1 + .6 * shut;
+        lids[n].rotation.z = s * (.06 + .3 * Math.max(0, ang - .35));
       }
       const o = an.pose['mouth.open'] || 0; j.mouthOpen.scale.set(1, Math.max(.001, o * 1.4), 1); j.mouthOpen.visible = o > .02; teeth.visible = an.state === 'attack' || an.state === 'strike';
-      mouth.scale.y = (Math.abs(ang) < .12 ? .12 * (ang < 0 ? -1 : 1) : ang) * 1; mouth.scale.y = Math.sign(mouth.scale.y || 1) * Math.max(.12, Math.abs(mouth.scale.y));
-      mouth.position.y = -.085; mouth.rotation.z = 0;
-      emissiveFlash(mats, an.state === 'hit' ? Math.max(0, 1 - an.t / .22) * .75 : 0, 0xff9a90);
+      mouth.position.y = -.105; mouth.scale.y = clamp(1 + ang * .5, .4, 1.8); mouth.rotation.z = 0;
+      lipLine.scale.y = .3 * (ang < 0 ? -1 : 1) * (1 + Math.abs(ang) * .6);
+      emissiveFlash(mats, an.state === 'hit' ? Math.max(0, 1 - an.t / .22) * .7 : 0, 0xff9a90);
     },
   };
   return self;
