@@ -9,24 +9,23 @@ const DEFS = { idle: { loop: true }, run: { loop: true }, dash: { loop: true }, 
 const KF = (...a) => a;
 const SKIN = 0x6c9bdc, SKIN_D = 0x4d76ba, SKIN_L = 0x8fb6ea, FUR_SHADE = 0xc4c9dc, FUR_MID = 0xe0e4f0;
 
-// ---- soft shaggy tuft geometry -------------------------------------------------
-// rounded teardrop: fat rounded base, bulging belly, blunt tapered tip. +Y is the length axis.
-function tuftGeo(len, rad, flat, seed) {
-  const R = rng(seed), N = 7, pts = [];
+// ---- shaggy fur locks ------------------------------------------------
+// a lock: wide at the root, tapering to a fine point, drooping as it falls. +Y is the length axis.
+function lockGeo(len, rad, flat, seed) {
+  const R = rng(seed), N = 8, pts = [];
   for (let i = 0; i <= N; i++) {
     const s = i / N;
-    let r = Math.pow(Math.sin(Math.PI * Math.pow(s, .62)), .62) * (1 - .18 * s);
-    if (s > .8) { const u = (s - .8) / .2; r *= Math.sqrt(Math.max(0, 1 - u * u)); }
-    pts.push(new THREE.Vector2(Math.max(r * rad, .0006), s * len));
+    const r = Math.pow(1 - s, .72) * (.74 + .36 * Math.sin(Math.PI * Math.min(1, s * 1.5)));
+    pts.push(new THREE.Vector2(Math.max(r * rad, .0004), s * len));
   }
-  const g = new THREE.LatheGeometry(pts, 7);
+  const g = new THREE.LatheGeometry(pts, 6);
   g.scale(1, 1, flat);
-  const p = g.attributes.position, c = new Float32Array(p.count * 3), col = new THREE.Color(), L = len;
+  const p = g.attributes.position, c = new Float32Array(p.count * 3), col = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
-    const t = clamp(p.getY(i) / L);
-    p.setY(i, p.getY(i) - t * t * L * .18);
-    p.setX(i, p.getX(i) + t * t * L * (R() - .5) * .1);
-    col.setHex(FUR_SHADE).lerp(new THREE.Color(FUR_MID), smooth(0, .45, t)).lerp(new THREE.Color(0xffffff), smooth(.5, .92, t));
+    const t = clamp(p.getY(i) / len);
+    p.setY(i, p.getY(i) - t * t * len * .32);
+    p.setX(i, p.getX(i) + t * t * len * (R() - .5) * .2);
+    col.setHex(FUR_SHADE).lerp(new THREE.Color(FUR_MID), smooth(0, .45, t)).lerp(new THREE.Color(0xffffff), smooth(.4, .95, t));
     c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3));
@@ -34,24 +33,21 @@ function tuftGeo(len, rad, flat, seed) {
   return g;
 }
 
-// a shaggy coat of layered tufts over an ellipsoid; returns one merged geometry
-function shag(d, n, len, rad, seed, { down = 1.0, out = 1.15, rows = 5, lenVar = .5, radVar = .3, flat = .6, skip, ring = .97, side = 0, jitter = .28, tone = 1 } = {}) {
-  const R = rng(seed), geos = [], up = new THREE.Vector3(0, 1, 0), q = new THREE.Quaternion(), m = new THREE.Matrix4(), v = new THREE.Vector3();
-  const per = Math.max(3, Math.round(n / rows));
-  for (let r = 0; r < rows; r++) {
-    const el = lerp(1.28, -1.15, rows === 1 ? .5 : r / (rows - 1)), band = 1 - .3 * Math.abs(el) / 1.3;
-    for (let i = 0; i < per; i++) {
-      const az = (i + (r % 2) * .5 + (R() - .5) * jitter) / per * TAU, e = el + (R() - .5) * .26;
-      const p = surf(d, az, e, ring), nr = surfN(d, p);
+// fringe rows of locks around an ellipsoid shell. never outlined: they are fur, not rock.
+function locks(d, rings, len, seed, { out = .5, down = 1.45, flat = .5, thick = .19, skip, tone = 1, lenVar = .42, droopSeed = 0 } = {}) {
+  const R = rng(seed + droopSeed), geos = [], up = new THREE.Vector3(0, 1, 0), q = new THREE.Quaternion(), m = new THREE.Matrix4();
+  for (let ri = 0; ri < rings.length; ri++) {
+    const { el = 0, n = 8, lm = 1 } = rings[ri];
+    for (let i = 0; i < n; i++) {
+      const az = (i + (R() - .5) * .55) / n * TAU, e = el + (R() - .5) * .16;
+      const p = surf(d, az, e, .94), nr = surfN(d, p);
       if (skip && skip(nr, p)) continue;
-      const L = len * band * (1 - lenVar + R() * lenVar * 2), W = rad * (1 - radVar + R() * radVar * 2);
-      const dir = nr.clone().multiplyScalar(out * (1 + (R() - .35) * .5)).add(new THREE.Vector3(0, -down, 0)).add(new THREE.Vector3((R() - .5) * .35, 0, (R() - .5) * .35)).normalize();
-      const g = tuftGeo(L, W, flat + (R() - .5) * .12, seed * 131 + r * 17 + i);
-      // shade: grey on the flanks and undersides, white on top and on the back ridge
-      const flank = Math.abs(nr.x), low = Math.max(0, -nr.y);
-      const k = clamp((flank * .3 + low * .4 + side * .5) * .8) * tone;
+      const L = len * lm * (1 - lenVar + R() * lenVar * 2), W = L * thick * (1 + (R() - .5) * .35);
+      const dir = nr.clone().multiplyScalar(out * (1 + (R() - .4) * .6)).add(new THREE.Vector3(0, -down, 0)).add(new THREE.Vector3((R() - .5) * .3, 0, (R() - .5) * .3)).normalize();
+      const g = lockGeo(L, W, flat + (R() - .5) * .1, seed * 131 + ri * 17 + i);
+      const k = clamp(.1 + .55 * Math.max(0, -nr.y) + .38 * Math.abs(nr.x)) * tone;
       const col = g.attributes.color, tmp = new THREE.Color();
-      for (let vi = 0; vi < col.count; vi++) { tmp.fromBufferAttribute(col, vi).lerp(new THREE.Color(FUR_SHADE), k * .55); col.setXYZ(vi, tmp.r, tmp.g, tmp.b); }
+      for (let vi = 0; vi < col.count; vi++) { tmp.fromBufferAttribute(col, vi).lerp(new THREE.Color(FUR_SHADE), k * .7); col.setXYZ(vi, tmp.r, tmp.g, tmp.b); }
       q.setFromUnitVectors(up, dir).multiply(new THREE.Quaternion().setFromAxisAngle(up, R() * TAU));
       m.compose(p, q, new THREE.Vector3(1, 1, 1));
       g.applyMatrix4(m);
@@ -92,59 +88,64 @@ const death = u => seq({
 const base = { 'armL.rz': .12, 'armR.rz': -.12, 'elbL.rx': -.16, 'elbR.rx': -.16, 'armL.rx': 0, 'torso.rx': .07, 'head.rx': .05, 'mouth.smile': -.45 };
 
 export function makeLofi() {
-  const furC = toon(0xffffff, { emissive: 0xeff2fc, emissiveIntensity: .55 }); addRim(furC, 0x8ae6ff, 2.4, .55);
+  const furC = toon(0xf4f5fb, { emissive: 0xe8ebf6, emissiveIntensity: .45 }); addRim(furC, 0x8ae6ff, 2.6, .5);
   const skin = toon(SKIN, { emissive: 0x2c4f94, emissiveIntensity: .22 }); addRim(skin, 0x9cc4ff, 2.4, .4);
   const skinM = toon(SKIN_D, { emissive: 0x24406f, emissiveIntensity: .2 }), skinL = toon(SKIN_L, { emissive: 0x40649f, emissiveIntensity: .2 });
   const tuftM = furMat(); tuftM.polygonOffset = true; tuftM.polygonOffsetFactor = 1.5; tuftM.polygonOffsetUnits = 1.5; tuftM.emissive.set(0xe6e9f6); tuftM.emissiveIntensity = .34;
 
   const { root: body, j, parts } = humanoid({
-    hipsY: .94, pelvis: [.185, .15, .155], pelvisY: .05, torsoY: .02, torso: { dims: [.20, .315, .165], cy: .29 },
-    head: { y: .585, z: .085, cy: .285, dims: [.225, .22, .20] },
-    arm: { x: .245, y: .50, upper: [.115, .31], fore: [.10, .28], hand: [.145, .135, .13] },
-    leg: { x: .135, thigh: [.125, .38], shin: [.115, .40], foot: [.15, .075, .30] }, mat: furC, skin, th: .018,
+    hipsY: .94, pelvis: [.185, .155, .16], pelvisY: .05, torsoY: .02, torso: { dims: [.195, .315, .16], cy: .29 },
+    head: { y: .63, z: .075, cy: .27, dims: [.245, .235, .215] },
+    arm: { x: .315, y: .485, upper: [.105, .35], fore: [.095, .33], hand: [.15, .14, .135] },
+    leg: { x: .155, thigh: [.118, .38], shin: [.105, .40], foot: [.128, .075, .29] }, mat: furC, skin, th: .018,
   });
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig); rig.add(body);
   body.rotation.x = .035;
 
-  // ---------------- fur coat ----------------
+  // ---------------- body shell: one soft continuous mass ----------------
+  // extra masses that fill the joints so the silhouette never breaks into parts
+  const shell = (host, d, x = 0, y = 0, z = 0, mat = furC) => { const m = blob(...d, mat, .016, 16); m.position.set(x, y, z); host.add(m); return m; };
+  shell(j.torso, [.205, .135, .165], 0, .40);         // chest / shoulders
+  shell(j.torso, [.10, .11, .095], 0, .545);         // neck
+  for (const n of ['L', 'R']) {
+    const s = n === 'L' ? 1 : -1;
+    shell(j['arm' + n], [.125, .125, .125], 0, -.03);  // shoulder cap
+    shell(j['elb' + n], [.105, .10, .10], 0, .01);     // elbow
+    shell(j['knee' + n], [.118, .115, .115], 0, .01);  // knee
+    shell(j['leg' + n], [.135, .13, .13], 0, -.02);    // hip
+  }
+
+  // ---------------- fur: fringe rows of drooping locks ----------------
   const fur = [];
-  const coat = (host, d, n, len, rad, seed, o) => {
-    const m = new THREE.Mesh(shag(d, n, len, rad, seed, o), tuftM);
-    outline(m, .012, PALETTE.ink); host.add(m); return m;
-  };
-  // two layers: big soft clumps for the shape, a finer coat on top for shag texture
-  const mane = (host, d, n, len, seed, o = {}) => {
-    const big = shag(d, n, len, len * .52, seed, { rows: 3, out: 1.25, down: 1.05, lenVar: .55, ring: .92, ...o });
-    const fine = shag(d.map(v => v * 1.03), Math.round(n * 1.7), len * .58, len * .3, seed + 7, { rows: 4, out: .9, down: 1.35, lenVar: .5, ring: .98, side: (o.side || 0) * .6, tone: 1.9, skip: o.skip });
-    const m = new THREE.Mesh(mergeGeometries([big, fine]), tuftM);
-    outline(m, .012, PALETTE.ink); host.add(m); return m;
-  };
   const sway = (g, k, ph) => { fur.push({ g, k, ph, a: 0, av: 0, b: 0, bv: 0 }); return g; };
   const D = p => p.userData.dims, S = (p, k = 1.02) => D(p).map(v => v * k);
+  const coat = (host, d, rings, len, seed, o) => { const m = new THREE.Mesh(locks(d, rings, len, seed, o), tuftM); host.add(m); return m; };
 
-  mane(parts.torso, S(parts.torso), 13, .30, 1, { side: .16, skip: nr => nr.z > .6 && Math.abs(nr.x) < .55 && nr.y < .5 });
-  mane(parts.pelvis, S(parts.pelvis), 10, .30, 2, { side: .18 });
-  mane(parts.head, S(parts.head, 1.0), 13, .21, 3, { out: 1.0, side: .08, skip: nr => nr.z > .3 && Math.abs(nr.x) < .92 && nr.y < .8 });
+  coat(parts.torso, S(parts.torso), [{ el: -1.05, n: 10, lm: 1.15 }, { el: -.45, n: 6 }, { el: .2, n: 5, lm: .8 }], .30, 1,
+    { out: .45, skip: nr => (nr.z > .75 && Math.abs(nr.x) < .5 && nr.y > -.4) || (Math.abs(nr.x) > .72 && nr.y > -.3) });
+  coat(parts.pelvis, S(parts.pelvis), [{ el: -1.0, n: 10, lm: 1.2 }, { el: -.35, n: 7 }], .32, 2, { out: .5 });
+  coat(parts.head, S(parts.head, 1.0), [{ el: -.9, n: 6, lm: 1.1 }, { el: -.2, n: 6, lm: .9 }], .17, 3,
+    { out: .45, skip: nr => nr.z > .45 && Math.abs(nr.x) < .9 && nr.y < .5 });
   for (const n of ['L', 'R']) {
     const s = n === 'L' ? 0 : 60;
-    mane(parts['upper' + n], S(parts['upper' + n]), 7, .26, 4 + s, { side: .1 });
-    mane(parts['fore' + n], S(parts['fore' + n]), 6, .24, 5 + s, { down: 1.2, side: .1 });
-    mane(parts['thigh' + n], S(parts['thigh' + n]), 8, .27, 6 + s, { side: .12 });
-    mane(parts['shin' + n], S(parts['shin' + n]), 7, .25, 7 + s, { down: 1.2, side: .12 });
-    // wrist + ankle cuffs, hanging outward, soft secondary motion
-    const wr = sway(grp(j['elb' + n], 0, -.40, 0), 1.1, s + 3), an = sway(grp(j['knee' + n], 0, -.46, 0), .8, s + 5);
-    coat(wr, [.105, .05, .095], 9, .16, .06, 44 + s, { rows: 2, down: 2.4, out: .5, ring: 1.0 });
-    coat(an, [.115, .05, .10], 9, .15, .06, 54 + s, { rows: 2, down: 2.6, out: .45, ring: 1.0, skip: nr => nr.y < -.55 });
+    coat(parts['upper' + n], S(parts['upper' + n]), [{ el: -.75, n: 4, lm: 1.1 }, { el: 0, n: 3, lm: .85 }], .24, 4 + s, { out: .5, skip: nr => nr.x * (n === 'L' ? 1 : -1) < -.35 });
+    coat(parts['fore' + n], S(parts['fore' + n]), [{ el: -.8, n: 5, lm: 1.15 }, { el: -.1, n: 3 }], .22, 5 + s, { out: .45, down: 1.7, skip: nr => nr.x * (n === 'L' ? 1 : -1) < -.35 });
+    coat(parts['thigh' + n], S(parts['thigh' + n]), [{ el: -.75, n: 5, lm: 1.1 }, { el: 0, n: 4, lm: .85 }], .26, 6 + s, { out: .5 });
+    coat(parts['shin' + n], S(parts['shin' + n]), [{ el: -.8, n: 5, lm: 1.1 }, { el: -.1, n: 3 }], .24, 7 + s, { out: .45, down: 1.7 });
+    // wrist + ankle cuffs hang and swing
+    const wr = sway(grp(j['elb' + n], 0, -.42, 0), 1.1, s + 3), an = sway(grp(j['knee' + n], 0, -.46, 0), .8, s + 5);
+    coat(wr, [.105, .05, .095], [{ el: -.35, n: 6, lm: 1.1 }, { el: .5, n: 4 }], .19, 44 + s, { out: .75, down: 1.9 });
+    coat(an, [.115, .05, .10], [{ el: -.35, n: 6, lm: 1.1 }, { el: .5, n: 4 }], .18, 54 + s, { out: .7, down: 2.0, skip: nr => nr.y < -.5 });
   }
-  // bushy skirt of fur at the hips + chest mane, big shoulder ruff
+  // hip skirt, chest mane, big shoulder ruff, head crest
   const skirt = sway(grp(j.hips, 0, .10, 0), .7, 3);
-  coat(skirt, [.21, .07, .19], 11, .34, .11, 70, { rows: 2, down: 3, out: .5, ring: 1.0, skip: nr => nr.y > .35 });
-  const chest = sway(grp(j.torso, 0, .30, 0), .6, 4);
-  coat(chest, [.22, .08, .19], 10, .30, .105, 71, { rows: 2, down: 3, out: .5, ring: 1.0, skip: nr => nr.y > .4 });
-  const ruff = sway(grp(j.torso, 0, .46, 0), 1.0, 6);
-  coat(ruff, [.30, .10, .27], 18, .32, .115, 73, { rows: 3, down: 2.2, out: .85, ring: 1.0, skip: nr => nr.z > .6 && Math.abs(nr.x) < .5 });
-  const crest = sway(grp(j.head, 0, .205, -.02), 1.5, 5);
-  coat(crest, [.19, .07, .16], 10, .22, .07, 72, { rows: 2, down: -.5, out: .35, ring: 1.0, skip: nr => nr.y < .1 });
+  coat(skirt, [.21, .08, .19], [{ el: -.4, n: 11, lm: 1.2 }, { el: .3, n: 6, lm: .8 }], .34, 70, { out: .6, down: 1.9 });
+  const chest = sway(grp(j.torso, 0, .32, 0), .6, 4);
+  coat(chest, [.23, .09, .19], [{ el: -.45, n: 9, lm: 1.1 }], .30, 71, { out: .55, down: 1.9, skip: nr => nr.z < -.4 });
+  const ruff = sway(grp(j.torso, 0, .48, 0), 1.0, 6);
+  coat(ruff, [.29, .11, .25], [{ el: -.35, n: 12, lm: 1.15 }, { el: .35, n: 8, lm: .85 }], .30, 73, { out: .85, down: 1.5, skip: nr => nr.z > .7 && Math.abs(nr.x) < .45 });
+  const crest = sway(grp(j.head, 0, .215, -.03), 1.5, 5);
+  coat(crest, [.20, .075, .17], [{ el: .35, n: 7, lm: 1.1 }, { el: .9, n: 5, lm: .8 }], .26, 72, { out: .5, down: -.55, skip: nr => nr.y < .1 || (nr.z > .6 && nr.y < .5) });
 
   // ---------------- hands, feet ----------------
   const ink = new THREE.MeshBasicMaterial({ color: PALETTE.ink }), white = new THREE.MeshBasicMaterial({ color: 0xffffff });
