@@ -14,7 +14,7 @@ const SKIN = 0x6c9bdc, SKIN_D = 0x4d76ba, SKIN_L = 0x8fb6ea, FUR_SHADE = 0xbfc4d
 // ---- shell fur ---------------------------------------------------------------
 // one material per fur layer: push the shell out along its normals, then fray it with smooth 3D value noise.
 function furLayer(off, dens, color, cutZ = 0) {
-  const m = new THREE.MeshToonMaterial({ color, gradientMap: gradient });
+  const m = new THREE.MeshToonMaterial({ color, gradientMap: gradient, emissive: 0x9aa4d2, emissiveIntensity: .3 });
   m.customProgramCacheKey = () => 'lofifur' + off + cutZ;
   m.onBeforeCompile = sh => {
     sh.uniforms.uOff = { value: off };
@@ -32,7 +32,7 @@ float fNoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * 
   return mix(mix(mix(fHash(i), fHash(i + vec3(1,0,0)), f.x), mix(fHash(i + vec3(0,1,0)), fHash(i + vec3(1,1,0)), f.x), f.y),
              mix(mix(fHash(i + vec3(0,0,1)), fHash(i + vec3(1,0,1)), f.x), mix(fHash(i + vec3(0,1,1)), fHash(i + vec3(1,1,1)), f.x), f.y), f.z); }
 ` + sh.fragmentShader.replace('void main() {', `void main() {
-  if (uCutZ > 0.0 && vF.z > uCutZ && vF.y > 0.02 && vF.y < 0.56) discard;
+  if (uCutZ > 0.0) { vec3 d = normalize(vF - vec3(0.0, 0.27, 0.0)); if (d.z > uCutZ) discard; }
   float nz = fNoise(vF * uFreq) * 0.7 + fNoise(vF * uFreq * 2.4) * 0.3;
   if (nz < uDens) discard;`);
   };
@@ -48,12 +48,15 @@ function capGeo(len, rad, bend, flat = .78) {
   }
   const g = new THREE.LatheGeometry(pts, 7);
   g.scale(1, 1, flat);
-  const p = g.attributes.position, v = new THREE.Vector3();
+  const p = g.attributes.position, v = new THREE.Vector3(), c = new Float32Array(p.count * 3), col = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i);
     const t = clamp(v.y / len);
     p.setXYZ(i, v.x + t * t * bend * len, v.y - t * t * len * .22, v.z + t * t * bend * len * .6);
+    col.setHex(FUR_SHADE).lerp(new THREE.Color(0xffffff), smooth(.15, .75, t));
+    c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b;
   }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
   g.computeVertexNormals();
   return g;
 }
@@ -92,17 +95,17 @@ export function makeLofi() {
   const furC = toon(0xfbfbff, { emissive: 0xeef0f8, emissiveIntensity: .4 }); addRim(furC, 0x8ae6ff, 2.6, .4);
   const skin = toon(SKIN, { emissive: 0x2c4f94, emissiveIntensity: .22 }); addRim(skin, 0x9cc4ff, 2.4, .4);
   const skinM = toon(SKIN_D, { emissive: 0x24406f, emissiveIntensity: .2 }), skinL = toon(SKIN_L, { emissive: 0x40649f, emissiveIntensity: .2 });
-  const capM = furMat(); capM.emissive.set(0xeef0f8); capM.emissiveIntensity = .35;
+  const capM = furMat(); capM.emissive.set(0xb9c2e0); capM.emissiveIntensity = .45;
   // five fur shells, greyer and denser inside, whiter and hairier outside
   const layers = [[.014, .07, 0xf1f3fa], [.030, .18, 0xf7f8fd], [.048, .3, 0xfcfcff], [.068, .42, 0xffffff], [.090, .55, 0xffffff]]
     .map(([off, dens, c]) => furLayer(off, dens, c));
   const headLayers = [[.014, .07, 0xf1f3fa], [.030, .18, 0xf7f8fd], [.048, .3, 0xfcfcff], [.068, .42, 0xffffff], [.090, .55, 0xffffff]]
-    .map(([off, dens, c]) => furLayer(off, dens, c, .07));
+    .map(([off, dens, c]) => furLayer(off, dens, c, Math.cos(.78)));
 
   const { root: body, j, parts } = humanoid({
-    hipsY: .94, pelvis: [.185, .155, .16], pelvisY: .05, torsoY: .02, torso: { dims: [.195, .315, .16], cy: .29 },
+    hipsY: .94, pelvis: [.185, .155, .16], pelvisY: .05, torsoY: .02, torso: { dims: [.175, .315, .15], cy: .29 },
     head: { y: .63, z: .075, cy: .27, dims: [.245, .235, .215] },
-    arm: { x: .25, y: .485, upper: [.115, .35], fore: [.10, .33], hand: [.15, .14, .135] },
+    arm: { x: .305, y: .485, upper: [.115, .35], fore: [.10, .33], hand: [.15, .14, .135] },
     leg: { x: .155, thigh: [.118, .38], shin: [.105, .40], foot: [.128, .075, .29] }, mat: furC, skin, th: 0,
   });
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig); rig.add(body);
@@ -119,8 +122,8 @@ export function makeLofi() {
     return m;
   };
   const D = p => p.userData.dims;
-  part(j.torso, [[D(parts.torso), 0, .29], [[.225, .14, .175], 0, .40], [[.105, .12, .10], 0, .55], [[.19, .13, .17], 0, .13]]);
-  part(j.hips, [[D(parts.pelvis), 0, .05], [[.17, .13, .15], 0, -.03]]);
+  part(j.torso, [[D(parts.torso), 0, .29], [[.20, .13, .165], 0, .40], [[.105, .12, .10], 0, .55], [[.155, .12, .15], 0, .11]]);
+  part(j.hips, [[D(parts.pelvis), 0, .05], [[.15, .12, .14], 0, -.03]]);
   part(j.head, [[D(parts.head), 0, .27], [[.13, .13, .13], 0, .07]], headLayers);
   for (const n of ['L', 'R']) {
     part(j['arm' + n], [[[.118, .16, .118], 0, -.03], [D(parts['upper' + n]), 0, -.175]]);
