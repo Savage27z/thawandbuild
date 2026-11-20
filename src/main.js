@@ -1,12 +1,13 @@
 import * as THREE from 'three';
-import {createWorld} from './world.js';
+import {createWorld,MAP_ORDER} from './world.js';
 import {createGame} from './game.js';
 const QUALITY={high:{pr:1.5,post:true},low:{pr:1,post:false}};
 let quality=new URLSearchParams(location.search).get('q')==='low'?'low':'high';
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,QUALITY[quality].pr));renderer.setSize(innerWidth,innerHeight);document.body.appendChild(renderer.domElement);
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xa9d6e5);
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,1500);camera.position.set(0,8,14);
-const world=createWorld(scene),game=createGame({scene,camera,renderer,world});
+const mq=new URLSearchParams(location.search).get('map'),startMap=MAP_ORDER.includes(mq)?mq:MAP_ORDER[(+mq||1)-1]||'glacier';
+let world=createWorld(scene,startMap);const game=createGame({scene,camera,renderer,world});
 const applyQuality=()=>{const q=QUALITY[quality];renderer.setPixelRatio(Math.min(devicePixelRatio,q.pr));renderer.setSize(innerWidth,innerHeight);if(renderer.__inkPost)renderer.__inkPost.enabled=q.post};
 addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
 addEventListener('keydown',e=>{if(e.code!=='KeyP'||e.repeat)return;quality=quality==='high'?'low':'high';applyQuality();game.debug.hud.toast('QUALITY: '+quality.toUpperCase(),'PRESS P TO TOGGLE',1.4)});
