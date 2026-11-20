@@ -80,6 +80,22 @@ const CSS = `
 #hud .badge svg{width:30px;height:34px;flex:none;filter:drop-shadow(0 0 6px #4da2ff)}
 #hud .badge b{display:block;font-size:20px;font-weight:700;color:#fff;letter-spacing:.14em;text-shadow:0 0 8px rgba(120,160,255,.9)}
 #hud .badge span{display:block;font-size:9px;color:var(--cyan);letter-spacing:.2em}
+#hud .maps{display:flex;flex-direction:column;gap:7px;width:100%;margin-top:4px}
+#hud .mc{position:relative;display:flex;align-items:center;gap:12px;padding:5px 12px 5px 5px;border:3px solid var(--ink);border-radius:8px;background:linear-gradient(180deg,#171e66,#0a0e38);box-shadow:0 0 0 1px var(--c,#4da2ff);cursor:pointer;transition:transform .1s,box-shadow .1s}
+#hud .mc:hover{transform:translateX(3px)}
+#hud .mc.sel{box-shadow:0 0 0 2px var(--c,#4da2ff),0 0 20px var(--c,#4da2ff),4px 4px 0 var(--ink);transform:translateX(5px)}
+#hud .mc .th{position:relative;width:116px;height:58px;flex:none;border:2px solid var(--ink);border-radius:4px;overflow:hidden;background:var(--c)}
+#hud .mc .th svg{display:block;width:100%;height:100%}
+#hud .mc .nfo{flex:1;min-width:0;text-align:left}
+#hud .mc .nfo b{display:block;font-size:14px;font-weight:700;color:#fff;letter-spacing:.1em;text-shadow:0 0 8px var(--c,#4da2ff);white-space:nowrap}
+#hud .mc .nfo span{display:block;margin-top:4px;font-size:8px;line-height:1.5;color:#9fb4ff;letter-spacing:.06em}
+#hud .mc .num{font-size:22px;color:var(--c);text-shadow:0 0 10px var(--c);width:26px;text-align:center}
+#hud .mc.lk{cursor:not-allowed;filter:saturate(.25) brightness(.6)}
+#hud .mc.lk .th::after{content:"LOCKED";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;background:rgba(5,5,26,.62);letter-spacing:.14em}
+#hud .mc.lk .nfo span{color:#ff8ae8}
+#hud .mode.mp{margin-top:20px;padding:20px 18px 12px;justify-content:flex-start;gap:0}
+#hud .mode.mp .btn{margin-top:10px;font-size:15px;padding:9px 30px}
+#hud #mapclear .big{font-size:48px}
 @media(max-width:900px){#hud #tr{width:110px;height:110px}#hud #tc{min-width:220px}#hud #water{font-size:22px}#hud .lcol{display:none}#hud .rcol h2{font-size:22px}}
 `;
 
@@ -101,13 +117,14 @@ export function createHud(root = document.getElementById('hud')) {
   <div class="ov" id="title"><div class="console"><div class="screen"><div class="stage"></div>
     <div class="lcol"><div class="pad"></div><img src="/lofi-title.png" alt="Lofi the yeti"><div class="lname">[LOFI]</div><div class="lst">STAMINA: [99.9]<br>SPEED: [99.9]<br>INTELLIGENCE: [99.9]</div></div>
     <div class="rcol"><h2>LOFI: THAW &amp; BUILD<small>SELECT GAME MODE</small></h2>
-     <div class="mode"><div class="tag">PURIFY THE WATER</div><div class="sub">THE WATER IS SICK. THE YETI IS AWAKE.<br>PURIFY EVERY STREAM &middot; SLAY THE GRIME TITAN</div><button class="btn" id="go">START</button><div class="keys">WASD MOVE &middot; MOUSE LOOK (CLICK TO LOCK) &middot; M1 COMBO<br>Q/M2 SLAM &middot; SPACE DASH &middot; ARROWS ORBIT</div></div>
+     <div class="mode mp"><div class="tag">SELECT MAP</div><div class="maps" id="maps"></div><button class="btn" id="go">START</button><div class="keys">WASD MOVE &middot; MOUSE LOOK (CLICK TO LOCK) &middot; M1 COMBO &middot; Q/M2 SLAM &middot; SPACE DASH</div></div>
      <div class="badge"><svg viewBox="0 0 24 28"><path d="M12 1C12 1 3 11.5 3 17.5a9 9 0 0 0 18 0C21 11.5 12 1 12 1Z" fill="#4da2ff" stroke="#05051a" stroke-width="2"/><path d="M7 17.5c2-2 3.4-2 5 0s3 2 5 0" fill="none" stroke="#e8f4ff" stroke-width="1.6"/><path d="M7 21c2-2 3.4-2 5 0s3 2 5 0" fill="none" stroke="#e8f4ff" stroke-width="1.6"/></svg><div><b>CLAY</b><span>HACKATHON III</span></div></div></div>
   </div></div></div>
   <div class="ov" id="lvl"><h2 class="big" style="font-size:40px">LEVEL UP</h2><div class="sub" style="margin:10px 0 0">CHOOSE A BOON &middot; PRESS 1 2 3</div><div id="cards"></div></div>
+  <div class="ov" id="mapclear"><h2 class="big" id="mcT"></h2><div class="sub" id="mcP"></div><div class="sub" id="mcN" style="margin-top:0"></div><button class="btn" id="nextmap">NEXT MAP</button></div>
   <div class="ov" id="end"><h2 class="big" id="endt"></h2><div class="sub" id="endp"></div><button class="btn" id="again">PLAY AGAIN</button></div>`;
   const $ = id => root.querySelector('#' + id);
-  const el = {}; ['hp','hpt','xp','xpt','lv','water','pips','obj','boss','bossn','bossb','s0','s1','s2','toast','vig','lowhp','title','lvl','cards','end','endt','endp','mm','hint','go','again'].forEach(k => el[k] = $(k));
+  const el = {}; ['hp','hpt','xp','xpt','lv','water','pips','obj','boss','bossn','bossb','s0','s1','s2','toast','vig','lowhp','title','lvl','cards','end','endt','endp','mm','hint','go','again','maps','mapclear','mcT','mcP','mcN','nextmap'].forEach(k => el[k] = $(k));
   const mm = el.mm.getContext('2d');
   let toastT = 0, hintT = 14, lastPips = '', cache = {};
   const set = (k, node, prop, v) => { if (cache[k] !== v) { cache[k] = v; node[prop] = v; } };
@@ -147,7 +164,7 @@ export function createHud(root = document.getElementById('hud')) {
       if (pips !== lastPips) { lastPips = pips; el.pips.innerHTML = pips; }
       set('obj', el.obj, 'textContent', d.objective);
       el.lowhp.style.opacity = d.hp / d.maxHp < .3 ? .9 : 0;
-      if (d.boss) { el.boss.style.display = 'block'; set('bossb', el.bossb.style, 'width', (d.boss.hp / d.boss.max * 100).toFixed(1) + '%'); } else el.boss.style.display = 'none';
+      if (d.boss) { el.boss.style.display = 'block'; set('bossn', el.bossn, 'textContent', d.boss.name || 'GRIME TITAN'); set('bossb', el.bossb.style, 'width', (d.boss.hp / d.boss.max * 100).toFixed(1) + '%'); } else el.boss.style.display = 'none';
       [d.cd.melee, d.cd.slam, d.cd.dash].forEach((f, i) => { const s = el['s' + i]; set('cd' + i, s.firstChild.lastChild.style, 'cssText', '--cd:' + (f * 360).toFixed(0) + 'deg'); s.classList.toggle('rdy', f <= 0); });
       if (toastT > 0 && (toastT -= dt) <= 0) el.toast.classList.remove('on');
       if (hintT > 0 && (hintT -= dt) <= 0) el.hint.style.opacity = 0;
@@ -161,7 +178,22 @@ export function createHud(root = document.getElementById('hud')) {
       let t = 0; const ox = (Math.random() - .5) * 30;
       const f = () => { t += .016; n.style.transform = 'translate(' + (x + ox) + 'px,' + (y - t * 70) + 'px) translate(-50%,-50%)'; n.style.opacity = Math.max(0, 1 - t / .8); if (t < .8) requestAnimationFrame(f); else { n.remove(); dnPool.push(n); } }; f();
     },
-    showTitle(onStart) { el.title.classList.add('on'); el.go.onclick = () => { el.title.classList.remove('on'); onStart(); }; },
+    showTitle(onStart, o = {}) {
+      el.title.classList.add('on'); el.go.onclick = () => { el.title.classList.remove('on'); onStart(); };
+      if (!o.maps) return;
+      let sel = o.selected;
+      const draw = () => {
+        el.maps.innerHTML = o.maps.map((m, i) => '<div class="mc' + (m.id === sel ? ' sel' : '') + (m.unlocked ? '' : ' lk') + '" data-id="' + m.id + '" style="--c:' + (m.accent || '#4da2ff') + '"><div class="num">' + (i + 1) + '</div><div class="th">' + (m.thumb || '') + '</div><div class="nfo"><b>' + m.name + '</b><span>' + (m.unlocked ? m.blurb : 'CLEAR THE PREVIOUS MAP TO UNLOCK') + '</span></div></div>').join('');
+        el.maps.querySelectorAll('.mc').forEach(n => { n.onclick = () => { const m = o.maps.find(q => q.id === n.dataset.id); if (!m.unlocked || m.id === sel) return; sel = m.id; draw(); o.onSelect && o.onSelect(sel); }; });
+      };
+      draw();
+    },
+    hideOverlays() { ['title', 'lvl', 'end', 'mapclear'].forEach(k => el[k].classList.remove('on')); },
+    showMapClear(info, onNext) {
+      el.mcT.innerHTML = 'MAP CLEAR<br>' + info.name; el.mcP.innerHTML = info.lines.join('<br>') + '<br>XP, LEVEL ' + info.level + ' AND BOONS CARRY OVER';
+      el.mcN.innerHTML = 'NEXT: ' + info.next; el.nextmap.textContent = 'CONTINUE';
+      el.mapclear.classList.add('on'); el.nextmap.onclick = () => { el.mapclear.classList.remove('on'); onNext(); };
+    },
     showLevelUp(choices, onPick) {
       el.cards.innerHTML = '';
       const done = i => { document.removeEventListener('keydown', key); el.lvl.classList.remove('on'); onPick(choices[i]); };

@@ -5,6 +5,8 @@ import { makeLofi, makeImp, makeGolem, makeBoss } from './characters.js';
 import { PALETTE, toon } from './style.js';
 import { createHud } from './hud.js';
 import { createAudio } from './audio.js';
+import { MAPS, MAP_ORDER } from './maps/index.js';
+import { getUnlocked, unlockUpTo } from './progress.js';
 
 const V3 = THREE.Vector3, clamp = THREE.MathUtils.clamp, rnd = (a, b) => a + Math.random() * (b - a);
 const angLerp = (a, b, k) => { let d = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; return a + d * k; };
@@ -25,10 +27,12 @@ const UPGRADES = [
   { icon: '\u2733', name: 'Permafrost', desc: 'Slam freezes +1.5s and deals +25%', f: s => { s.freeze += 1.5; s.slamDmg *= 1.25; } },
 ];
 
-export function createGame({ scene, camera, renderer, world } = {}) {
+export function createGame({ scene, camera, renderer, world, switchWorld } = {}) {
   const hud = createHud(), audio = createAudio();
   const heightAt = (x, z) => (world && world.heightAt ? world.heightAt(x, z) : 0) || 0;
-  const bounds = (world && world.bounds) || 120;
+  let bounds = (world && world.bounds) || 120;
+  const mapCfg = () => (world && world.cfg) || MAPS.glacier;
+  const E = () => mapCfg().enemy, BOSS = () => mapCfg().boss;
   const dom = renderer && renderer.domElement;
 
   let streams = world && world.streams && world.streams.length ? world.streams : null, fallbackMarkers = null;
@@ -36,7 +40,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     streams = [{ x: 46, z: -22, radius: 12, clean: false }, { x: -52, z: 34, radius: 14, clean: false }, { x: 8, z: -72, radius: 18, clean: false }];
     fallbackMarkers = streams.map(s => { const m = new THREE.Mesh(new THREE.CircleGeometry(s.radius, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: PALETTE.sludge })); m.position.set(s.x, heightAt(s.x, s.z) + .08, s.z); scene.add(m); return m; });
   }
-  const SS = streams.map((s, i) => ({ i, s, wave: 0, alive: 0, delay: 0, active: false, done: false, volume: Math.round(s.radius * s.radius * 2.2) }));
+  let SS = streams.map((s, i) => ({ i, s, wave: 0, alive: 0, delay: 0, active: false, done: false, volume: Math.round(s.radius * s.radius * 2.2) }));
   const setClean = (i, c) => { streams[i].clean = c; if (world && world.setStreamClean) world.setStreamClean(i, c); if (fallbackMarkers) fallbackMarkers[i].material.color.set(c ? PALETTE.water : PALETTE.sludge); };
 
   const S = { mode: 'title', t: 0, kills: 0, water: 0, waterShown: 0, hitstop: 0, trauma: 0, bossSpawned: false, bossDead: false, time: 0, levelPending: 0, endT: 0 };
@@ -133,11 +137,11 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     g.scale.setScalar(wide ? 1.4 : 1);
     addFx(g, .25, (t) => { const k = t / .25; m.opacity = .9 * (1 - k); g.scale.setScalar((wide ? 1.4 : 1) * (1 + k * .25)); }, () => m.dispose());
   };
-  const mkTele = (kind, w, h) => {
-    const g = new THREE.Group(), edge = new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .9, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), fill = new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .34, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+  const mkTele = (kind, w, h, tc = 0xff2d8a) => {
+    const g = new THREE.Group(), edge = new THREE.MeshBasicMaterial({ color: tc, transparent: true, opacity: .9, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), fill = new THREE.MeshBasicMaterial({ color: tc, transparent: true, opacity: .34, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
     let f;
-    if (kind === 'circle') { const e = new THREE.Mesh(geo.ring, edge); e.scale.setScalar(w); g.add(e); const base = new THREE.Mesh(geo.disc, new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .12, depthTest: false, depthWrite: false })); base.scale.setScalar(w); g.add(base); f = new THREE.Mesh(geo.disc, fill); g.add(f); g.userData.set = k => f.scale.setScalar(Math.max(.01, w * k)); g.userData.extra = base.material; }
-    else { const gg = new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(0, 0, h / 2); const e = new THREE.LineSegments(new THREE.EdgesGeometry(gg), new THREE.LineBasicMaterial({ color: 0xff2d8a })); g.add(e); f = new THREE.Mesh(gg, fill); g.add(f); g.userData.set = k => f.scale.set(1, 1, Math.max(.01, k)); g.userData.extra = e.material; }
+    if (kind === 'circle') { const e = new THREE.Mesh(geo.ring, edge); e.scale.setScalar(w); g.add(e); const base = new THREE.Mesh(geo.disc, new THREE.MeshBasicMaterial({ color: tc, transparent: true, opacity: .12, depthTest: false, depthWrite: false })); base.scale.setScalar(w); g.add(base); f = new THREE.Mesh(geo.disc, fill); g.add(f); g.userData.set = k => f.scale.setScalar(Math.max(.01, w * k)); g.userData.extra = base.material; }
+    else { const gg = new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(0, 0, h / 2); const e = new THREE.LineSegments(new THREE.EdgesGeometry(gg), new THREE.LineBasicMaterial({ color: tc })); g.add(e); f = new THREE.Mesh(gg, fill); g.add(f); g.userData.set = k => f.scale.set(1, 1, Math.max(.01, k)); g.userData.extra = e.material; }
     g.traverse(o => { o.renderOrder = 6; });
     g.userData.dispose = () => { scene.remove(g); edge.dispose(); fill.dispose(); g.userData.extra.dispose(); };
     scene.add(g); return g;
@@ -146,14 +150,19 @@ export function createGame({ scene, camera, renderer, world } = {}) {
   const barBg = new THREE.MeshBasicMaterial({ color: PALETTE.ink, depthTest: false, transparent: true }), barFg = new THREE.MeshBasicMaterial({ color: 0x39ff88, depthTest: false, transparent: true });
   const iceGeo = new THREE.IcosahedronGeometry(1, 1), iceMat = new THREE.MeshBasicMaterial({ color: 0x7ad0ff, transparent: true, opacity: .5, depthWrite: false });
   const iceInk = new THREE.MeshBasicMaterial({ color: 0xc8f4ff, transparent: true, opacity: .9, wireframe: true });
+  const bossSpikeMat = new THREE.MeshBasicMaterial({ color: 0xc41a7e });
   const glowMats = { imp: new THREE.MeshBasicMaterial({ color: 0xff3df0, transparent: true, opacity: .62, blending: THREE.AdditiveBlending, depthWrite: false }), golem: new THREE.MeshBasicMaterial({ color: 0xa04bff, transparent: true, opacity: .58, blending: THREE.AdditiveBlending, depthWrite: false }), boss: new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }) };
   const enemies = [], projs = [];
   const nameOf = { imp: 'idle', golem: 'idle', boss: 'idle' };
 
   function spawnEnemy(type, x, z, si = -1, instant) {
     const c = CFG[type], ch = c.make(); fillPlaceholder(ch, c.ph[0], c.ph[1], c.rad); scene.add(ch.root);
-    const e = { type, cfg: c, ch, si, hp: c.hp * (type === 'boss' ? 1 : 1 + (p.level - 1) * .06), pos: new V3(x, heightAt(x, z), z), kv: new V3(), face: 0, st: 'spawn', t: instant ? 0 : .7, freeze: 0, dead: false, deadT: 0, punch: 0, cd: rnd(.2, 1), tele: null, atk: '', radius: ch.radius || c.rad, hitDone: false, name: '', phase2: false, spawnT: instant ? 1 : 0, boss: type === 'boss' };
+    const e = { type, cfg: c, ch, si, hp: type === 'boss' ? E().bossHp * (qs.has('weak') ? .08 : 1) : c.hp * (type === 'imp' ? E().impHp : E().golemHp) * (1 + (p.level - 1) * .06), pos: new V3(x, heightAt(x, z), z), kv: new V3(), face: 0, st: 'spawn', t: instant ? 0 : .7, freeze: 0, dead: false, deadT: 0, punch: 0, cd: rnd(.2, 1), tele: null, atk: '', radius: ch.radius || c.rad, hitDone: false, name: '', phase2: false, spawnT: instant ? 1 : 0, boss: type === 'boss' };
     e.max = e.hp;
+    if (type === 'boss') {
+      if (BOSS().tint != null) { const tint = new THREE.Color(BOSS().tint), seen = new Set(); ch.root.traverse(o => { const m = o.material; if (!m || !m.color || seen.has(m) || m.side === THREE.BackSide) return; seen.add(m); m.color.multiply(tint); if (m.emissive) m.emissive.lerp(tint, .5); }); }
+      glowMats.boss.color.setHex(BOSS().glow); bossSpikeMat.color.setHex(BOSS().glow);
+    }
     const bar = new THREE.Group(), bg = new THREE.Mesh(geo.plane, barBg), fg = new THREE.Mesh(geo.plane, barFg); bg.scale.set(1.3, .2, 1); fg.position.z = .001; bar.add(bg, fg); bar.renderOrder = 10; bg.renderOrder = 10; fg.renderOrder = 11; bar.visible = false; e.bar = bar; e.fg = fg; scene.add(bar);
     const glow = new THREE.Mesh(geo.glow, glowMats[type]); glow.renderOrder = 2; e.glow = glow; scene.add(glow);
     const ice = new THREE.Mesh(iceGeo, iceMat); ice.visible = false; ice.scale.set(e.radius * 1.5, c.size * .55, e.radius * 1.5); ice.position.y = c.size * .5; ch.root.add(ice); e.ice = ice;
@@ -191,6 +200,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     while (!e.boss && p.xp >= xpNeed()) { p.xp -= xpNeed(); p.level++; S.levelPending++; p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .25); }
   }
 
+  const dmgOf = e => e.cfg.dmg * E().dmg * (e.boss ? E().bossDmg : 1);
   function hurtPlayer(amt, from, kb = 6) {
     if (p.inv > 0 || p.dashT > 0 || S.mode !== 'play') return;
     p.hp -= amt; p.inv = .7; p.hurtT = .3; audio.hurt(); hud.hurt(); S.trauma = Math.min(1, S.trauma + .45); S.hitstop = Math.max(S.hitstop, .05);
@@ -198,9 +208,18 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     burst(p.pos.clone().setY(p.pos.y + 1.5), 12, [0xeafcff, 0xff2d8a], 5, .18, .5, 4);
     if (p.hp <= 0) { p.hp = 0; S.mode = 'lose'; S.endT = 1.6; lofiSet('death', true); audio.lose(); document.exitPointerLock && document.exitPointerLock(); }
   }
+  const mapIdx = () => MAP_ORDER.indexOf(mapCfg().id);
   function win() {
-    const tryWin = () => { if (S.mode === 'lose' || S.mode === 'win') return; if (S.mode !== 'play') return void setTimeout(tryWin, 300); S.mode = 'win'; lofiSet('celebrate'); audio.win(); audio.setIntensity(0); document.exitPointerLock && document.exitPointerLock(); hud.showEnd(true, endLines()); }; setTimeout(tryWin, 2200);
-    hud.toast('GRIME TITAN FALLS', 'THE SOURCE RUNS CLEAR', 3);
+    const tryWin = () => {
+      if (S.mode === 'lose' || S.mode === 'win' || S.mode === 'mapclear') return; if (S.mode !== 'play') return void setTimeout(tryWin, 300);
+      lofiSet('celebrate'); audio.win(); audio.setIntensity(0); document.exitPointerLock && document.exitPointerLock();
+      const next = MAP_ORDER[mapIdx() + 1];
+      if (!next) { S.mode = 'win'; hud.showEnd(true, endLines()); return; }
+      S.mode = 'mapclear'; unlockUpTo(mapIdx() + 2); console.info('[lofi] map clear', mapCfg().id);
+      hud.showMapClear({ name: mapCfg().name, next: MAPS[next].name, nextId: next, lines: endLines(), level: p.level }, () => enterMap(next));
+    };
+    setTimeout(tryWin, 2200);
+    hud.toast(BOSS().fall, 'THE SOURCE RUNS CLEAR', 3);
   }
   const endLines = () => ['WATER CLEANED ' + Math.round(S.water).toLocaleString('en-US') + ' L', 'SLUDGE SLAIN ' + S.kills + ' / LEVEL ' + p.level, 'TIME ' + Math.floor(S.time / 60) + ':' + String(Math.floor(S.time % 60)).padStart(2, '0')];
 
@@ -266,8 +285,8 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     e.ice.visible = false;
     const to = p.pos.clone().sub(e.pos).setY(0), dist = to.length(), dir = dist > .01 ? to.clone().divideScalar(dist) : new V3(0, 0, 1);
     const tf = Math.atan2(dir.x, dir.z);
-    if (e.boss && !e.phase2 && e.hp < e.max * .5) { e.phase2 = true; hud.toast('THE TITAN ENRAGES', '', 2); audio.roar(); S.trauma = 1; e.st = 'recover'; e.t = 1.2; setEn(e, 'roar'); }
-    const spd = c.speed * (e.phase2 ? 1.3 : 1);
+    if (e.boss && !e.phase2 && e.hp < e.max * .5) { e.phase2 = true; hud.toast(BOSS().name + ' ENRAGES', '', 2); audio.roar(); S.trauma = 1; e.st = 'recover'; e.t = 1.2; setEn(e, 'roar'); }
+    const spd = c.speed * (e.boss ? 1 : E().speed) * (e.phase2 ? 1.3 : 1);
     if (e.st === 'chase') {
       e.face = angLerp(e.face, tf, 1 - Math.exp(-8 * dt)); setEn(e, 'walk');
       const want = e.boss ? 7 : c.atkRange * .8;
@@ -301,21 +320,27 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (e.type === 'imp') { e.atk = 'bite'; e.ts = .383 / e.dur; setEn(e, 'attack'); return; }
     if (e.type === 'golem') { e.atk = 'smash'; e.ts = .675 / e.dur; e.name = ''; setEn(e, 'attack'); e.tele = mkTele('circle', 3.7); const f = dirF(e.face); e.tele.position.set(e.pos.x + f.x * 2, heightAt(e.pos.x + f.x * 2, e.pos.z + f.z * 2) + .4, e.pos.z + f.z * 2); e.atkPos = new V3(e.pos.x + f.x * 2, 0, e.pos.z + f.z * 2); audio.warn(); return; }
     const r = Math.random(), imps = enemies.filter(o => !o.dead && o.type === 'imp').length;
-    if (dist < 11 && r < .5) { e.atk = 'stomp'; e.dur = e.t = 1.5 * (e.phase2 ? .75 : 1); e.name = ''; setEn(e, 'stomp'); e.tele = mkTele('circle', 10); e.tele.position.set(e.pos.x, heightAt(e.pos.x, e.pos.z) + .4, e.pos.z); }
-    else if (r < .8 || imps > 7) { e.atk = 'wave'; e.dur = e.t = 1.1 * (e.phase2 ? .75 : 1); e.name = ''; setEn(e, 'roar'); e.tele = mkTele('rect', 5.5, 30); e.tele.position.set(e.pos.x, heightAt(e.pos.x, e.pos.z) + .4, e.pos.z); }
+    if (BOSS().variant === 'data' && dist > 7 && r < .25) { e.atk = 'blink'; e.dur = e.t = 1.0 * (e.phase2 ? .75 : 1); e.name = ''; setEn(e, 'roar'); e.atkPos = new V3(p.pos.x, 0, p.pos.z); e.tele = mkTele('circle', 7, 0, BOSS().glow); e.tele.position.set(p.pos.x, heightAt(p.pos.x, p.pos.z) + .4, p.pos.z); }
+    else if (dist < 11 && r < .5) { e.atk = 'stomp'; e.dur = e.t = 1.5 * (e.phase2 ? .75 : 1); e.name = ''; setEn(e, 'stomp'); e.tele = mkTele('circle', 10, 0, BOSS().glow); e.tele.position.set(e.pos.x, heightAt(e.pos.x, e.pos.z) + .4, e.pos.z); }
+    else if (r < .8 || imps > 7) { e.atk = 'wave'; e.dur = e.t = 1.1 * (e.phase2 ? .75 : 1); e.name = ''; setEn(e, 'roar'); e.tele = mkTele('rect', 5.5, 30, BOSS().glow); e.tele.position.set(e.pos.x, heightAt(e.pos.x, e.pos.z) + .4, e.pos.z); }
     else { e.atk = 'summon'; e.dur = e.t = 1.0; e.name = ''; setEn(e, 'roar'); audio.roar(); }
-    e.ts = ({ stomp: .78, wave: .9, summon: .9 }[e.atk] || 1) / e.dur; audio.warn(); e.cd = 0;
+    e.ts = ({ stomp: .78, wave: .9, summon: .9, blink: .9 }[e.atk] || 1) / e.dur; audio.warn(); e.cd = 0;
   }
   function fireAttack(e, dir, dist) {
     const c = e.cfg; if (e.tele) { e.tele.userData.dispose(); e.tele = null; }
     e.st = 'recover'; e.t = c.rec * (e.phase2 ? .7 : 1);
-    if (e.atk === 'bite') { if (dist < c.atkRange + .5) hurtPlayer(c.dmg, e.pos, 7); setEn(e, 'walk'); e.name = 'walk'; return; }
-    if (e.atk === 'smash') { shock(e.atkPos.x, e.atkPos.z, 3.7, { color: 0xc08bff, mat: spikeMatSlud, spike: .7, life: .8 }); S.trauma = Math.min(1, S.trauma + .35); audio.stomp(); if (Math.hypot(p.pos.x - e.atkPos.x, p.pos.z - e.atkPos.z) < 3.7 + p.radius * .5) hurtPlayer(c.dmg, e.atkPos, 9); e.name = ''; setEn(e, 'idle'); return; }
-    if (e.atk === 'stomp') { shock(e.pos.x, e.pos.z, 10, { color: 0xff4da0, mat: spikeMatDark, spike: 1.3, life: 1.1 }); S.trauma = 1; audio.stomp(); S.hitstop = .08; if (dist < 10 + p.radius * .5) hurtPlayer(c.dmg, e.pos, 14); e.t = 1.4; return; }
+    if (e.atk === 'bite') { if (dist < c.atkRange + .5) hurtPlayer(dmgOf(e), e.pos, 7); setEn(e, 'walk'); e.name = 'walk'; return; }
+    if (e.atk === 'smash') { shock(e.atkPos.x, e.atkPos.z, 3.7, { color: 0xc08bff, mat: spikeMatSlud, spike: .7, life: .8 }); S.trauma = Math.min(1, S.trauma + .35); audio.stomp(); if (Math.hypot(p.pos.x - e.atkPos.x, p.pos.z - e.atkPos.z) < 3.7 + p.radius * .5) hurtPlayer(dmgOf(e), e.atkPos, 9); e.name = ''; setEn(e, 'idle'); return; }
+    if (e.atk === 'stomp') { shock(e.pos.x, e.pos.z, 10, { color: BOSS().glow, mat: bossSpikeMat, spike: 1.3, life: 1.1 }); S.trauma = 1; audio.stomp(); S.hitstop = .08; if (dist < 10 + p.radius * .5) hurtPlayer(dmgOf(e), e.pos, 14); e.t = 1.4;
+      if (BOSS().variant === 'carnival') { const ex = e.pos.x, ez = e.pos.z, dm = dmgOf(e) * .7; setTimeout(() => { if (S.mode !== 'play') return; shock(ex, ez, 17, { color: BOSS().glow, mat: bossSpikeMat, spike: 1, life: 1 }); S.trauma = Math.min(1, S.trauma + .5); audio.stomp(); const d = Math.hypot(p.pos.x - ex, p.pos.z - ez); if (d > 9.5 && d < 17.5) hurtPlayer(dm, new V3(ex, 0, ez), 12); }, 650); }
+      return; }
+    if (e.atk === 'blink') { const a = e.atkPos; e.pos.set(a.x, heightAt(a.x, a.z), a.z); shock(a.x, a.z, 7, { color: BOSS().glow, mat: bossSpikeMat, spike: 1.1, life: .9 }); S.trauma = Math.min(1, S.trauma + .6); audio.stomp(); S.hitstop = .06; if (Math.hypot(p.pos.x - a.x, p.pos.z - a.z) < 7 + p.radius * .5) hurtPlayer(dmgOf(e) * .8, a, 12); e.t = 1.0; return; }
     if (e.atk === 'wave') {
-      const f = dirF(e.face), g = new THREE.Mesh(new THREE.BoxGeometry(5.5, 1.4, .8), new THREE.MeshBasicMaterial({ color: 0xff3d9a, transparent: true, opacity: .6, depthWrite: false })); g.position.set(e.pos.x + f.x * 3, 0, e.pos.z + f.z * 3); g.rotation.y = e.face; scene.add(g); projs.push({ m: g, dir: f, t: 0, hit: false, dmg: 24 }); audio.stomp(); S.trauma = Math.min(1, S.trauma + .4); return;
+      const V = BOSS().variant, offs = V === 'carnival' ? [0, -.42, .42] : V === 'data' ? [-.3, .3] : [0];
+      for (const off of offs) { const fa = e.face + off, f = dirF(fa), g = new THREE.Mesh(new THREE.BoxGeometry(5.5, 1.4, .8), new THREE.MeshBasicMaterial({ color: BOSS().glow, transparent: true, opacity: .6, depthWrite: false })); g.position.set(e.pos.x + f.x * 3, 0, e.pos.z + f.z * 3); g.rotation.y = fa; scene.add(g); projs.push({ m: g, dir: f, t: 0, hit: false, dmg: 24 * E().dmg * E().bossDmg }); }
+      audio.stomp(); S.trauma = Math.min(1, S.trauma + .4); return;
     }
-    if (e.atk === 'summon') { for (let k = 0; k < (e.phase2 ? 5 : 3); k++) { const a = rnd(0, 6.283); spawnEnemy('imp', e.pos.x + Math.cos(a) * 6, e.pos.z + Math.sin(a) * 6, e.si); } S.trauma = .5; e.t = 1.2; }
+    if (e.atk === 'summon') { for (let k = 0; k < (e.phase2 ? 5 : 3) + (BOSS().variant === 'carnival' ? 2 : 0); k++) { const a = rnd(0, 6.283); spawnEnemy('imp', e.pos.x + Math.cos(a) * 6, e.pos.z + Math.sin(a) * 6, e.si); } S.trauma = .5; e.t = 1.2; }
   }
 
   const spawnPoint = (s, rmin, rmax) => {
@@ -334,7 +359,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
       if (q.wave >= WAVES) { purify(q); continue; }
       if ((q.delay -= dt) > 0) continue;
       q.wave++; q.delay = 2;
-      const nImp = 4 + q.wave * 2 + Math.round(s.radius / 10), nGol = q.wave - 1;
+      const nImp = E().impBase + q.wave * 2 + Math.round(s.radius / 10), nGol = q.wave - 1 + E().golemExtra;
       for (let k = 0; k < nImp; k++) { const [x, z] = spawnPoint(s, .6, 1.1); spawnEnemy('imp', x, z, q.i); }
       for (let k = 0; k < nGol; k++) { const [x, z] = spawnPoint(s, .3, .9); spawnEnemy('golem', x, z, q.i); }
       hud.toast('WAVE ' + q.wave + ' / ' + WAVES, '', 1.8);
@@ -342,7 +367,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     return nearest;
   }
   function purify(q) {
-    q.done = true; q.active = false; setClean(q.i, true); const s = q.s;
+    q.done = true; q.active = false; setClean(q.i, true); const s = q.s; console.info('[lofi] stream purified', mapCfg().id, q.i);
     S.water += q.volume; audio.purify();
     const c = new V3(s.x, heightAt(s.x, s.z) + .3, s.z);
     shock(s.x, s.z, s.radius * 1.5, { color: 0x4dc8ff, spike: 1.4, life: 1.6 }); burst(c, 120, [0x2fc8ff, 0x6ac8ff, 0xeafcff, 0x39ff88], s.radius * .9, .35, 1.4, 14, 8);
@@ -352,11 +377,11 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (!left) setTimeout(spawnBoss, 3500);
   }
   function spawnBoss() {
-    if (S.bossSpawned) return; S.bossSpawned = true;
+    if (S.bossSpawned) return; S.bossSpawned = true; console.info('[lofi] boss spawned', mapCfg().id);
     const big = SS.reduce((a, b) => (b.s.radius > a.s.radius ? b : a));
     const a = Math.atan2(p.pos.z - big.s.z, p.pos.x - big.s.x);
     const e = spawnEnemy('boss', big.s.x + Math.cos(a) * big.s.radius * .5, big.s.z + Math.sin(a) * big.s.radius * .5, -1); e.bar.visible = false;
-    hud.toast('THE GRIME TITAN RISES', 'AT THE LARGEST SOURCE', 3.4); audio.roar(); S.trauma = 1;
+    hud.toast(BOSS().rise, 'AT THE LARGEST SOURCE', 3.4); audio.roar(); S.trauma = 1;
   }
 
   const beacon = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0x39ff88, transparent: true, opacity: .32, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -371,7 +396,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
   }
 
   const ocV2 = new V3(), cPos2 = new V3(), shake = new V3(), tmp = new V3(), tgtV = new V3(), wantV = new V3(), dV = new V3(), ocV = new V3(), cPos = new V3();
-  const colliders = (world && world.colliders) || [];
+  let colliders = (world && world.colliders) || [];
   const camHit = (from, to, margin) => {
     dV.copy(to).sub(from); const L = dV.length(); if (L < 1e-4) return 1; dV.divideScalar(L); let best = L;
     const test = (cx, cy, cz, r) => {
@@ -411,8 +436,39 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (Math.abs(camera.fov - cam.fov) > .05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
   }
 
-  function start() { audio.resume(); S.mode = 'play'; if (dom && dom.requestPointerLock) dom.requestPointerLock()?.catch?.(() => {}); hud.toast('THE ICE CRACKS', 'FIND THE SLUDGE STREAMS (FOLLOW THE GREEN BEACON)', 4); audio.setIntensity(0); }
-  hud.showTitle(start);
+  function start() { audio.resume(); S.mode = 'play'; if (dom && dom.requestPointerLock) dom.requestPointerLock()?.catch?.(() => {}); hud.toast(mapCfg().intro[0], mapCfg().intro[1], 4); audio.setIntensity(0); }
+  const mapList = () => MAP_ORDER.map((id, i) => ({ id, name: MAPS[id].name, blurb: MAPS[id].blurb, thumb: MAPS[id].thumb, accent: MAPS[id].accent, unlocked: i < getUnlocked() || i <= urlMap }));
+  const urlMap = (() => { const m = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('map') : null; return m ? (MAP_ORDER.includes(m) ? MAP_ORDER.indexOf(m) : (+m || 1) - 1) : -1; })();
+  function placeAtSpawn() {
+    const sp = mapCfg().spawn;
+    if (sp) p.pos.set(sp[0], heightAt(sp[0], sp[1]), sp[1]);
+    else { let seed = 7, rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647, bs = 1e9, bp = [0, 0];
+      for (let i = 0; i < 500; i++) { const a = rn() * 6.283, r = rn() * 50, x = Math.cos(a) * r, z = Math.sin(a) * r, h = heightAt(x, z); if (h < 2.5) continue; const sl = Math.max(Math.abs(heightAt(x + 3, z) - h), Math.abs(heightAt(x - 3, z) - h), Math.abs(heightAt(x, z + 3) - h), Math.abs(heightAt(x, z - 3) - h)) + Math.abs(h - 6) * .15; if (sl < bs) { bs = sl; bp = [x, z]; } }
+      p.pos.set(bp[0], heightAt(bp[0], bp[1]), bp[1]); }
+    p.vel.set(0, 0, 0);
+    const s0 = streams.reduce((a, b) => (Math.hypot(b.x - p.pos.x, b.z - p.pos.z) < Math.hypot(a.x - p.pos.x, a.z - p.pos.z) ? b : a)); cam.yaw = Math.atan2(p.pos.x - s0.x, p.pos.z - s0.z); p.face = Math.atan2(s0.x - p.pos.x, s0.z - p.pos.z); cam.init = false; cam.eff = cam.curD = undefined;
+  }
+  function loadMap(nw) {
+    for (const e of enemies) { scene.remove(e.ch.root, e.bar, e.glow); if (e.tele) e.tele.userData.dispose(); }
+    enemies.length = 0;
+    for (const q of projs) { scene.remove(q.m); q.m.geometry.dispose(); q.m.material.dispose(); }
+    projs.length = 0;
+    for (const f of fx) { scene.remove(f.obj); if (f.fnEnd) f.fnEnd(); }
+    fx.length = 0;
+    for (const q of parts) q.life = 0;
+    world = nw; bounds = world.bounds || 120; colliders = world.colliders || []; streams = world.streams;
+    SS = streams.map((s, i) => ({ i, s, wave: 0, alive: 0, delay: 0, active: false, done: false, volume: Math.round(s.radius * s.radius * 2.2) }));
+    S.bossSpawned = false; S.bossDead = false; S.nearest = null; S.kills = S.kills;
+    p.hp = p.maxHp; p.inv = 0; p.hurtT = 0; p.dashT = 0; p.atkT = 0; p.slamT = 0; p.dashCd = 0; p.slamCd = 0;
+    placeAtSpawn();
+  }
+  function enterMap(id) {
+    if (!switchWorld) return;
+    hud.hideOverlays(); console.info('[lofi] entering map', id); loadMap(switchWorld(id)); S.mode = 'play'; lofiSet('idle', true);
+    start();
+  }
+  function selectMap(id) { if (id === mapCfg().id || !switchWorld) return; loadMap(switchWorld(id)); }
+  hud.showTitle(start, { maps: mapList(), selected: mapCfg().id, onSelect: selectMap });
   const qs = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
   const bot = qs.has('bot');
   if (qs.has('tp')) { const s = streams[+qs.get('tp')]; p.pos.set(s.x + 3, heightAt(s.x + 3, s.z + 18), s.z + 18); cam.yaw = Math.PI; }
@@ -425,11 +481,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     mouse[0] = !!tg && bd < 5; if (tg && bd < 9 && enemies.filter(e => !e.dead && e.pos.distanceTo(p.pos) < 7).length >= 3) slamBuf = .3;
     if (tg && bd < 6 && Math.random() < .01) dashBuf = .2; p.hp = Math.max(p.hp, 30);
   }
-  p.pos.set(0, heightAt(0, 0), 0);
-  { let seed = 7, rn = () => (seed = (seed * 16807) % 2147483647) / 2147483647, bs = 1e9, bp = [0, 0];
-    for (let i = 0; i < 500; i++) { const a = rn() * 6.283, r = rn() * 50, x = Math.cos(a) * r, z = Math.sin(a) * r, h = heightAt(x, z); if (h < 2.5) continue; const sl = Math.max(Math.abs(heightAt(x + 3, z) - h), Math.abs(heightAt(x - 3, z) - h), Math.abs(heightAt(x, z + 3) - h), Math.abs(heightAt(x, z - 3) - h)) + Math.abs(h - 6) * .15; if (sl < bs) { bs = sl; bp = [x, z]; } }
-    p.pos.set(bp[0], heightAt(bp[0], bp[1]), bp[1]); }
-  { const s0 = streams.reduce((a, b) => (Math.hypot(b.x, b.z) < Math.hypot(a.x, a.z) ? b : a)); cam.yaw = Math.atan2(p.pos.x - s0.x, p.pos.z - s0.z); p.face = Math.atan2(s0.x - p.pos.x, s0.z - p.pos.z); }
+  placeAtSpawn();
 
   function step(dtRaw, t) {
     S.t = t; let dt = dtRaw;
@@ -452,6 +504,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
       const r2 = Math.hypot(p.pos.x, p.pos.z), lim = bounds * .96; if (r2 > lim) { p.pos.x *= lim / r2; p.pos.z *= lim / r2; }
       for (const c of colliders) { if (!c.solid) continue; const dx = p.pos.x - c.x, dz = p.pos.z - c.z, l = Math.hypot(dx, dz), R = c.r * .8 + p.radius * .6; if (l < R && l > 1e-3 && Math.abs(p.pos.y + 1 - c.y) < c.r * 1.5) { p.pos.x += dx / l * (R - l); p.pos.z += dz / l * (R - l); } }
       p.pos.y = heightAt(p.pos.x, p.pos.z);
+      if (qs.has('autokill') && S.time > (+qs.get('autokill') || 3)) { const bz = enemies.find(e => e.boss && !e.dead); if (bz) killEnemy(bz); }
       const near = updateStreams(dt);
       for (const e of enemies) updateEnemy(e, dt);
       for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].gone) enemies.splice(i, 1);
@@ -466,7 +519,8 @@ export function createGame({ scene, camera, renderer, world } = {}) {
       S.nearest = near;
       audio.setIntensity(clamp(aliveCount() / 10, 0, 1));
     } else if (S.mode === 'levelup' && bot) { const c = document.querySelector('.card'); if (c && (S.pick = (S.pick || 0) + dtRaw) > .3) { S.pick = 0; c.click(); } }
-    else if (S.mode === 'win' || S.mode === 'lose') {
+    else if (S.mode === 'win' || S.mode === 'lose' || S.mode === 'mapclear') {
+      if (S.mode === 'mapclear' && bot && (S.nx = (S.nx || 0) + dtRaw) > 1.2) { S.nx = 0; const b = document.querySelector('#nextmap'); if (b) b.click(); }
       for (const e of enemies) updateEnemy(e, dt);
       p.vel.multiplyScalar(Math.exp(-6 * dt)); p.pos.addScaledVector(p.vel, dt); p.pos.y = heightAt(p.pos.x, p.pos.z);
       if (S.mode === 'lose' && (S.endT -= dtRaw) <= 0 && S.endT > -5) { S.endT = -10; hud.showEnd(false, endLines()); }
@@ -500,16 +554,16 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     const boss = enemies.find(e => e.boss && !e.dead);
     const active = SS.find(q => q.active);
     const left = SS.filter(q => !q.done).length;
-    const objective = S.mode === 'title' ? '' : boss ? 'DEFEAT THE GRIME TITAN' : S.bossSpawned ? 'THE SOURCE IS CLEAR' : active ? 'WAVE ' + Math.max(1, active.wave) + '/' + WAVES + ' - SLAY THE SLUDGE' : 'PURIFY THE STREAMS (' + (SS.length - left) + '/' + SS.length + ')';
+    const objective = S.mode === 'title' ? '' : boss ? 'DEFEAT THE ' + BOSS().name : S.bossSpawned ? 'THE SOURCE IS CLEAR' : active ? 'WAVE ' + Math.max(1, active.wave) + '/' + WAVES + ' - SLAY THE SLUDGE' : 'PURIFY THE STREAMS (' + (SS.length - left) + '/' + SS.length + ')';
     hud.update({
       hp: p.hp, maxHp: p.maxHp, xp: p.xp, xpNeed: xpNeed(), level: p.level, water: S.waterShown, objective,
       streams: SS.map(q => ({ clean: q.done, active: q.active, x: q.s.x, z: q.s.z, radius: q.s.radius })),
       enemies: enemies.filter(e => !e.dead).map(e => ({ x: e.pos.x, z: e.pos.z, boss: e.boss })),
       target: tgtB ? { x: tx, z: tz } : null, px: p.pos.x, pz: p.pos.z, yaw: cam.yaw, face: p.face,
-      boss: boss ? { hp: boss.hp, max: boss.max } : null,
+      boss: boss ? { hp: boss.hp, max: boss.max, name: BOSS().name } : null,
       cd: { melee: p.atkT > 0 ? p.atkT / p.atkDur : 0, slam: clamp(p.slamCd / (5 * stats.slamCd), 0, 1), dash: clamp(p.dashCd / (.75 * stats.dashCd), 0, 1) },
     }, dtRaw);
   }
   const fast = +qs.get('fast') || 1, update = (dt, t) => { for (let i = 0; i < fast; i++) step(fast > 1 ? .05 : dt, t); };
-  return { update, start, debug: { p, S, SS, enemies, stats, spawnEnemy, spawnBoss, purify, hud, audio, cam, teleport(x, z) { p.pos.set(x, heightAt(x, z), z); } } };
+  return { update, start, loadMap, enterMap, selectMap, debug: { get SS() { return SS; }, p, S, enemies, stats, spawnEnemy, spawnBoss, purify, hud, audio, cam, teleport(x, z) { p.pos.set(x, heightAt(x, z), z); } } };
 }

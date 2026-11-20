@@ -7,7 +7,9 @@ const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-per
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xa9d6e5);
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,1500);camera.position.set(0,8,14);
 const mq=new URLSearchParams(location.search).get('map'),startMap=MAP_ORDER.includes(mq)?mq:MAP_ORDER[(+mq||1)-1]||'glacier';
-let world=createWorld(scene,startMap);const game=createGame({scene,camera,renderer,world});
+let world=createWorld(scene,startMap);
+const switchWorld=id=>{world.dispose();world=createWorld(scene,id);window.__game&&(window.__game.world=world);return world};
+const game=createGame({scene,camera,renderer,world,switchWorld});
 const applyQuality=()=>{const q=QUALITY[quality];renderer.setPixelRatio(Math.min(devicePixelRatio,q.pr));renderer.setSize(innerWidth,innerHeight);if(renderer.__inkPost)renderer.__inkPost.enabled=q.post};
 addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
 addEventListener('keydown',e=>{if(e.code!=='KeyP'||e.repeat)return;quality=quality==='high'?'low':'high';applyQuality();game.debug.hud.toast('QUALITY: '+quality.toUpperCase(),'PRESS P TO TOGGLE',1.4)});
