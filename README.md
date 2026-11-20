@@ -2,7 +2,9 @@
 
 A 3D action game made for the **CLAY Hackathon**. You play Lofi, a small white yeti with a blue scarf, who wakes a frozen valley of drifting ice arches and floating islands. Sludge imps, golems and the Grime Titan have fouled the streams. Smash them, purify each stream, then take the Titan down at the largest source.
 
-Everything is procedural: no external art, audio files or models. Geometry, toon materials, ink outlines, the sky, water and sound are all generated in code with three.js. The look targets Moebius linework and flat pastel fields crossed with Roger Dean's floating islands and sweeping arches. See ART_BIBLE.md and the concept paintings in art/.
+Everything is procedural: no external art, audio files or models. Geometry, toon materials, ink outlines, the night sky (moon, aurora), water and sound are all generated in code with three.js.
+
+**Brand look:** deep navy night, electric-blue and violet ice, neon-green sludge with magenta/violet enemies, and a sci-fi cockpit HUD with pixel type (see art/concept2-*.png). Lofi follows the official character art (art/official-lofi.png): a tall lanky white yeti with pale-grey side shading, blue frog-like face, blue fists and bare feet. art/final2-*.png are current screenshots; art/final2-lofi-vs-official.png compares the model with the reference.
 
 ## How it relates to Lofi lore and the hackathon
 

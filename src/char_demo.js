@@ -11,7 +11,7 @@ const chars = { lofi: makeLofi(), imp: makeImp(), golem: makeGolem(), boss: make
 const xs = { lofi: -6.2, imp: -3.4, golem: -.2, boss: 6.5 };
 for (const k in chars) { chars[k].root.position.x = xs[k]; chars[k].root.rotation.y = q.has('rot') ? +q.get('rot') * Math.PI / 180 : .35; scene.add(chars[k].root); }
 const only = q.get('only'); if (only) for (const k in chars) { chars[k].root.visible = k === only; if (k === only) { chars[k].root.position.x = 0; } }
-const states = { lofi: ['idle', 'run', 'attack', 'dash', 'hit', 'celebrate'], imp: ['idle', 'walk', 'attack', 'hit', 'death'], golem: ['idle', 'walk', 'attack', 'hit', 'death'], boss: ['idle', 'walk', 'attack', 'hit', 'death', 'roar', 'stomp'] };
+const states = { lofi: ['idle', 'run', 'attack', 'strike', 'dash', 'hit', 'death', 'celebrate'], imp: ['idle', 'walk', 'attack', 'hit', 'death'], golem: ['idle', 'walk', 'attack', 'hit', 'death'], boss: ['idle', 'walk', 'attack', 'hit', 'death', 'roar', 'stomp'] };
 const ui = document.getElementById('ui'); const cur = {};
 function set(k, s) { cur[k] = s; chars[k].setState(s); }
 for (const k in states) { const d = document.createElement('div'); d.append(k + ': '); for (const s of states[k]) { const b = document.createElement('button'); b.textContent = s; b.onclick = () => set(k, s); d.append(b); } ui.append(d); }

@@ -41,13 +41,14 @@ export function createGame({ scene, camera, renderer, world } = {}) {
 
   const S = { mode: 'title', t: 0, kills: 0, water: 0, waterShown: 0, hitstop: 0, trauma: 0, bossSpawned: false, bossDead: false, time: 0, levelPending: 0, endT: 0 };
   const stats = { dmg: 1, speed: 1, slamR: 1, slamCd: 1, dashCd: 1, siphon: 0, atkSpd: 1, freeze: 1.6, slamDmg: 1 };
-  const cam = { yaw: 0.6, pitch: .3, dist: 11, pos: new V3(), look: new V3(), fov: 55, init: false };
+  const cam = { yaw: 0.6, pitch: .22, dist: 7.5, pos: new V3(), look: new V3(), fov: 55, init: false };
 
   const fillPlaceholder = (ch, color, h, r) => {
     if (ch.root.children.length) return;
     const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, h, 4, 10), toon(color)); m.position.y = h / 2 + r; ch.root.add(m);
     const e = new THREE.Mesh(new THREE.BoxGeometry(r * 1.2, r * .3, r * .4), new THREE.MeshBasicMaterial({ color: 0xffd23a })); e.position.set(0, h + r * .8, r * .8); ch.root.add(e);
   };
+  const lofiRing = new THREE.Mesh(new THREE.RingGeometry(.9, 1.25, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x7ae6ff, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false })); lofiRing.renderOrder = 2; scene.add(lofiRing);
   const lofi = makeLofi(); fillPlaceholder(lofi, PALETTE.fur, 1.1, .6); scene.add(lofi.root);
   let lofiState = '';
   const lofiSet = (n, force) => { if (lofiState !== n || force) { lofiState = n; if (n !== 'attack' && n !== 'strike') lofi.timeScale = 1; lofi.setState(n, force); } };
@@ -103,7 +104,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     im.frustumCulled = ik.frustumCulled = false;
     const sp = Array.from({ length: nS }, (_, k) => {
       const outer = k < nS * .55, r = outer ? R * rnd(.8, 1.02) : R * Math.pow(Math.random(), .8) * .8, a = Math.random() * 6.283, hero = k % 11 === 0;
-      return { x: Math.cos(a) * r, z: Math.sin(a) * r, y: heightAt(x + Math.cos(a) * r, z + Math.sin(a) * r) - y - .25, rx: Math.sin(a) * rnd(.15, .55), rz: -Math.cos(a) * rnd(.15, .55), ry: rnd(0, 6.28), sc: rnd(.35, .95) * (o.spike || 1) * (outer ? 1 : .75) * (hero ? 1.5 : 1) * Math.min(1.1, .5 + R / 16), d: r / R * .3 + rnd(0, .08) };
+      return { x: Math.cos(a) * r, z: Math.sin(a) * r, y: heightAt(x + Math.cos(a) * r, z + Math.sin(a) * r) - y - .25, rx: Math.sin(a) * rnd(.15, .55), rz: -Math.cos(a) * rnd(.15, .55), ry: rnd(0, 6.28), sc: rnd(.35, .95) * (o.spike || 1) * (outer ? 1 : .75) * (hero ? 1.5 : 1) * .7 * Math.min(1.1, .5 + R / 16), d: r / R * .3 + rnd(0, .08) };
     });
     g.add(im, ik);
     const L = [], Lh = [];
@@ -128,7 +129,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
 
   const arcMat = () => new THREE.MeshBasicMaterial({ color: 0xc8f4ff, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const slashFx = (pos, face, wide) => {
-    const m = arcMat(), a = new THREE.Mesh(geo.arc, m), g = new THREE.Group(); g.add(a); g.position.copy(pos).setY(pos.y + 1.4); g.rotation.set(0, face, wide ? 0 : (Math.random() < .5 ? .5 : -.5) * .6);
+    const m = arcMat(), a = new THREE.Mesh(geo.arc, m), g = new THREE.Group(); g.add(a); g.position.copy(pos).setY(pos.y + 1.7); g.rotation.set(0, face, wide ? 0 : (Math.random() < .5 ? .5 : -.5) * .6);
     g.scale.setScalar(wide ? 1.4 : 1);
     addFx(g, .25, (t) => { const k = t / .25; m.opacity = .9 * (1 - k); g.scale.setScalar((wide ? 1.4 : 1) * (1 + k * .25)); }, () => m.dispose());
   };
@@ -194,8 +195,8 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (p.inv > 0 || p.dashT > 0 || S.mode !== 'play') return;
     p.hp -= amt; p.inv = .7; p.hurtT = .3; audio.hurt(); hud.hurt(); S.trauma = Math.min(1, S.trauma + .45); S.hitstop = Math.max(S.hitstop, .05);
     if (from) { const d = p.pos.clone().sub(from).setY(0).normalize(); p.vel.addScaledVector(d, kb); }
-    burst(p.pos.clone().setY(p.pos.y + 1.2), 12, [0xeafcff, 0xff2d8a], 5, .18, .5, 4);
-    if (p.hp <= 0) { p.hp = 0; S.mode = 'lose'; S.endT = 1.2; lofiSet('hit', true); audio.lose(); document.exitPointerLock && document.exitPointerLock(); }
+    burst(p.pos.clone().setY(p.pos.y + 1.5), 12, [0xeafcff, 0xff2d8a], 5, .18, .5, 4);
+    if (p.hp <= 0) { p.hp = 0; S.mode = 'lose'; S.endT = 1.6; lofiSet('death', true); audio.lose(); document.exitPointerLock && document.exitPointerLock(); }
   }
   function win() {
     const tryWin = () => { if (S.mode === 'lose' || S.mode === 'win') return; if (S.mode !== 'play') return void setTimeout(tryWin, 300); S.mode = 'win'; lofiSet('celebrate'); audio.win(); audio.setIntensity(0); document.exitPointerLock && document.exitPointerLock(); hud.showEnd(true, endLines()); }; setTimeout(tryWin, 2200);
@@ -213,7 +214,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (dashBuf > 0 && p.dashCd <= 0 && p.slamT <= 0) {
       dashBuf = 0; p.dashT = .22; p.dashCd = .75 * stats.dashCd; p.atkT = 0;
       p.dashDir.copy(mv.lengthSq() > .01 ? mv : dirF(p.face)); p.face = Math.atan2(p.dashDir.x, p.dashDir.z);
-      audio.dash(); lofiSet('dash', true); burst(p.pos.clone().setY(p.pos.y + .6), 14, [0xeafcff, 0xbff4ff], 3, .18, .5, 1);
+      audio.dash(); lofiSet('dash', true); burst(p.pos.clone().setY(p.pos.y + .9), 14, [0xeafcff, 0xbff4ff], 3, .18, .5, 1);
     }
     if (p.dashT > 0) { p.dashT -= dt; p.vel.copy(p.dashDir).multiplyScalar(25); if (Math.random() < .6) burst(p.pos.clone().setY(p.pos.y + .5), 1, 0xeafcff, 1, .22, .4, .5, 2); return; }
     if (slamBuf > 0 && p.slamCd <= 0 && p.slamT <= 0) {
@@ -377,17 +378,17 @@ export function createGame({ scene, camera, renderer, world } = {}) {
       ocV.set(from.x - cx, from.y - cy, from.z - cz); const R = r + margin, c = ocV.lengthSq() - R * R; if (c < 0) return;
       const b = ocV.dot(dV), disc = b * b - c; if (disc <= 0) return; const t = -b - Math.sqrt(disc); if (t > 0 && t < best) best = t;
     };
-    for (const c of colliders) test(c.x, c.y, c.z, c.r);
+    for (const c of colliders) if (!c.fade) test(c.x, c.y, c.z, c.r);
     for (const e of enemies) if (!e.dead && e.boss) test(e.pos.x, e.pos.y + e.cfg.size * .55, e.pos.z, e.radius * (e.boss ? 1.25 : 1.1));
     return best / L;
   };
   function updateCamera(dt) {
     const turn = (keys.ArrowLeft ? 1 : 0) - (keys.ArrowRight ? 1 : 0); cam.yaw += turn * 2.2 * dt; cam.pitch = clamp(cam.pitch + ((keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0)) * 1.2 * dt, .12, 1.2);
     if (S.mode === 'title') cam.yaw += dt * .12;
-    const D = cam.dist * (S.bossSpawned && !S.bossDead ? 1.6 : 1) + (S.mode === 'title' ? 3 : 0), right = tmp.set(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw));
-    tgtV.copy(p.pos); tgtV.y += S.bossSpawned && !S.bossDead ? 5 : 3.1; tgtV.addScaledVector(right, 1.6); tgtV.x -= Math.sin(cam.yaw) * 1.5; tgtV.z -= Math.cos(cam.yaw) * 1.5;
+    const D = cam.dist * (S.bossSpawned && !S.bossDead ? 1.9 : 1) + (S.mode === 'title' ? 3 : 0), right = tmp.set(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw));
+    tgtV.copy(p.pos); tgtV.y += S.bossSpawned && !S.bossDead ? 5.2 : 2.3; tgtV.addScaledVector(right, 1.6); tgtV.x -= Math.sin(cam.yaw) * 1.5; tgtV.z -= Math.cos(cam.yaw) * 1.5; if (cam.close) { tgtV.copy(p.pos); tgtV.y += 1.25; }
     const dirAt = pitch => wantV.set(Math.sin(cam.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(cam.yaw) * Math.cos(pitch));
-    const clear = pitch => { dirAt(pitch); for (let i = 3; i <= 16; i++) { const u = i / 16 * D; if (tgtV.y + wantV.y * u < heightAt(tgtV.x + wantV.x * u, tgtV.z + wantV.z * u) + 1.2) return false; } return true; };
+    const clear = pitch => { dirAt(pitch); for (let i = 3; i <= 16; i++) { const u = i / 16 * D; if (tgtV.y + wantV.y * u < heightAt(tgtV.x + wantV.x * u, tgtV.z + wantV.z * u) + .6) return false; } return true; };
     let ep = cam.pitch; while (ep < 1.35 && !clear(ep)) ep += .06;
     cam.eff = cam.eff === undefined ? ep : cam.eff + (ep - cam.eff) * (1 - Math.exp(-7 * dt));
     dirAt(cam.eff); cPos.copy(tgtV).addScaledVector(wantV, D);
@@ -397,10 +398,16 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (!cam.init) { cam.pos.copy(want); cam.look.copy(tgtV); cam.init = true; }
     cam.pos.lerp(want, 1 - Math.exp(-12 * dt)); cam.look.lerp(tgtV, 1 - Math.exp(-14 * dt));
     for (const e of enemies) { if (e.dead) continue; const cy = e.pos.y + e.cfg.size * .55, R = e.radius * (e.boss ? 1.25 : 1.1) + .6; ocV.set(cam.pos.x - e.pos.x, cam.pos.y - cy, cam.pos.z - e.pos.z); const l = ocV.length(); if (l < R && l > 1e-3) cam.pos.addScaledVector(ocV, (R - l) / l); }
+    const hx = p.pos.x, hy = p.pos.y + 2, hz = p.pos.z, sx = cam.pos.x - hx, sy = cam.pos.y - hy, sz = cam.pos.z - hz, sl = sx * sx + sy * sy + sz * sz;
+    for (const g of (world && world.crystals) || []) {
+      const f = g.userData.fade; let u = clamp(((f.x - hx) * sx + (f.y - hy) * sy + (f.z - hz) * sz) / sl, 0, 1);
+      const dx = hx + sx * u - f.x, dy = hy + sy * u - f.y, dz = hz + sz * u - f.z, near = Math.hypot(p.pos.x - f.x, p.pos.z - f.z) < f.r * .8, hit = dx * dx + dy * dy + dz * dz < f.r * f.r && u < .98 && !near;
+      f.k += ((hit || Math.hypot(cam.pos.x - f.x, cam.pos.z - f.z) < f.r * 1.1 ? .12 : 1) - f.k) * (1 - Math.exp(-8 * dt)); g.scale.setScalar(Math.max(.05, f.k));
+    }
     S.trauma = Math.max(0, S.trauma - dt * 1.6); const sh = S.trauma * S.trauma * .45;
     shake.set(rnd(-1, 1) * sh, rnd(-1, 1) * sh, rnd(-1, 1) * sh);
     camera.position.copy(cam.pos).add(shake); camera.lookAt(cam.look.x + shake.x * .5, cam.look.y + shake.y * .5, cam.look.z);
-    const fov = 58 + (p.dashT > 0 ? 9 : 0) + S.trauma * 3; cam.fov += (fov - cam.fov) * (1 - Math.exp(-10 * dt));
+    const fov = 52 + (p.dashT > 0 ? 9 : 0) + S.trauma * 3; cam.fov += (fov - cam.fov) * (1 - Math.exp(-10 * dt));
     if (Math.abs(camera.fov - cam.fov) > .05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
   }
 
@@ -468,8 +475,9 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (play || S.mode === 'title') {
       if (p.dashT > 0) lofiSet('dash'); else if (p.slamT > 0 || p.atkT > 0) { /* attack anim is driven by the action start */ } else if (p.hurtT > 0 && p.hurtT > .2) lofiSet('hit'); else lofiSet(p.vel.lengthSq() > 4 ? 'run' : 'idle');
     }
+    lofiRing.position.set(p.pos.x, p.pos.y + .08, p.pos.z); lofiRing.visible = S.mode !== 'title';
     lofi.setMoveSpeed(Math.hypot(p.vel.x, p.vel.z));
-    lofi.root.rotation.order = 'YXZ'; lofi.root.rotation.x = S.mode === 'lose' ? -clamp((1.2 - S.endT) / .6, 0, 1) * 1.45 : 0;
+    lofi.root.rotation.x = 0;
     lofi.update(dt, lofiState);
     if (p.inv > 0 && play) lofi.root.visible = p.dashT > 0 || Math.floor(p.inv * 24) % 2 === 0 || p.inv > .45; else lofi.root.visible = true;
 

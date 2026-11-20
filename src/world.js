@@ -218,7 +218,7 @@ export function createWorld(scene){
       m.scale.set(h*.34,h,h*.34);m.position.set((hash(i,z)-.5)*sc*.9,0,(hash(x,i)-.5)*sc*.9);
       m.rotation.set((hash(i,2)-.5)*.7,hash(i,9)*6,(hash(i,4)-.5)*.7);g.add(m);outline(m,.05);}
     const hm=new THREE.Mesh(haloGeo,amber?haloG:haloB);hm.scale.setScalar(sc*.95);hm.position.y=sc*.5;g.add(hm);
-    scene.add(g);crystals.push(g);colliders.push({x,y:g.position.y+.35*sc,z,r:.5*sc,solid:true},{x,y:g.position.y+.95*sc,z,r:.28*sc});
+    g.userData.fade={x,y:g.position.y+sc*.5,z,r:sc*.55+1.2,k:1};scene.add(g);crystals.push(g);colliders.push({x,y:g.position.y+.35*sc,z,r:.5*sc,solid:true,fade:true},{x,y:g.position.y+.95*sc,z,r:.28*sc,fade:true});
   }
   streams.forEach((s,i)=>{const dx=(i%2?1:-1)*(riverW(s.z)+9);cluster(s.x+dx,s.z+6,3.4+i*.4,i%2==0);cluster(s.x-dx*.7,s.z-9,2.2,false)});
   for(let i=0;i<14;i++){const x=(hash(i,77)-.5)*220,z=(hash(i,78)-.5)*220-30;if(heightAt(x,z)<0)continue;cluster(x,z,1.8+hash(i,3)*2.5,i%4==0)}
@@ -326,7 +326,7 @@ export function createWorld(scene){
       cMatIce.emissiveIntensity=.8+.35*Math.sin(t*1.7);cMatAmb.emissiveIntensity=.8+.35*Math.sin(t*2.1);
     },
     heightAt,
-    colliders,
+    colliders,crystals,
     streams,
     setStreamClean(i,clean){if(!streams[i])return;streams[i].clean=!!clean;targets[i]=clean?1:0},
     bounds:120,

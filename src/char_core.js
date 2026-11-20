@@ -60,15 +60,15 @@ export const surf = (d, az, el, o = 1) => new THREE.Vector3(d[0] * Math.cos(el) 
 export const surfN = (d, v) => new THREE.Vector3(v.x / (d[0] * d[0]), v.y / (d[1] * d[1]), v.z / (d[2] * d[2])).normalize();
 
 // merged cone tufts over an ellipsoid; base darker than tip for fur depth
-export function tufts(d, n, len, rad, seed, { down = .5, base = 0xb9cdee, tip = 0xffffff, skip, jitter = .4, lenVar = .5, droop = .45 } = {}) {
+export function tufts(d, n, len, rad, seed, { down = .5, base = 0xb9cdee, tip = 0xffffff, skip, jitter = .4, lenVar = .5, droop = .45, tipR = .22, side = null } = {}) {
   const R = rng(seed), geos = [], ln = [], up = new THREE.Vector3(0, 1, 0), cb = new THREE.Color(base), ct = new THREE.Color(tip);
   for (let i = 0, tries = 0; i < n && tries < n * 6; tries++) {
     const az = R() * TAU, el = Math.asin(R() * 2 - 1), p = surf(d, az, el), nr = surfN(d, p);
     if (skip && skip(nr, p)) continue; i++;
     const dir = nr.clone().add(new THREE.Vector3(0, -down, 0)).add(new THREE.Vector3(R() - .5, R() - .5, R() - .5).multiplyScalar(jitter)).normalize();
-    const L = len * (1 - lenVar + R() * lenVar * 2), w = rad * (.7 + R() * .6), g = new THREE.CylinderGeometry(w * .22, w, L, 5, 3); g.translate(0, L / 2, 0);
-    const pos = g.attributes.position, col = new Float32Array(pos.count * 3), m = new THREE.Matrix4().compose(p.clone().addScaledVector(nr, -len * .25), new THREE.Quaternion().setFromUnitVectors(up, dir).multiply(new THREE.Quaternion().setFromAxisAngle(up, R() * TAU)), new THREE.Vector3(1.5, 1, .8)), v = new THREE.Vector3();
-    for (let k = 0; k < pos.count; k++) { const t = clamp(pos.getY(k) / L), c = cb.clone().lerp(ct, t); col.set([c.r, c.g, c.b], k * 3); v.fromBufferAttribute(pos, k).applyMatrix4(m); v.y -= t * t * L * droop; pos.setXYZ(k, v.x, v.y, v.z); }
+    const L = len * (1 - lenVar + R() * lenVar * 2), w = rad * (.7 + R() * .6), g = new THREE.CylinderGeometry(w * tipR, w, L, 5, 3); g.translate(0, L / 2, 0);
+    const sd = side ? clamp((Math.abs(nr.x) - .35) * 1.6) : 0, ctt = ct.clone().lerp(new THREE.Color(side || 0), sd), cbb = cb.clone().lerp(new THREE.Color(side || 0), sd * .6), pos = g.attributes.position, col = new Float32Array(pos.count * 3), m = new THREE.Matrix4().compose(p.clone().addScaledVector(nr, -len * .25), new THREE.Quaternion().setFromUnitVectors(up, dir).multiply(new THREE.Quaternion().setFromAxisAngle(up, R() * TAU)), new THREE.Vector3(1.5, 1, .8)), v = new THREE.Vector3();
+    for (let k = 0; k < pos.count; k++) { const t = clamp(pos.getY(k) / L), c = cbb.clone().lerp(ctt, t); col.set([c.r, c.g, c.b], k * 3); v.fromBufferAttribute(pos, k).applyMatrix4(m); v.y -= t * t * L * droop; pos.setXYZ(k, v.x, v.y, v.z); }
     ln.push(pos.getX(18), pos.getY(18), pos.getZ(18), pos.getX(0), pos.getY(0), pos.getZ(0));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
     geos.push(g.toNonIndexed());

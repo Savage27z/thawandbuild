@@ -39,9 +39,9 @@ const death = u => seq({
 const base = { 'armL.rz': .1, 'armR.rz': -.1, 'elbL.rx': -.14, 'elbR.rx': -.14, 'armL.rx': 0, 'torso.rx': .05, 'head.rx': .06, 'mouth.smile': -.45 };
 
 export function makeLofi() {
-  const furC = toon(0xf6f8ff, { emissive: 0x9aa2c4, emissiveIntensity: .24 }); addRim(furC, 0xc0cce8, 2.6, .35);
+  const furC = toon(0xffffff, { emissive: 0xf0f2fc, emissiveIntensity: .75 }); addRim(furC, 0x8ae6ff, 2.2, .9);
   const skin = toon(SKIN, { emissive: 0x2c4f94, emissiveIntensity: .3 }); addRim(skin, 0x9cc4ff, 2.4, .45);
-  const tuftM = furMat(); tuftM.polygonOffset = true; tuftM.polygonOffsetFactor = 2; tuftM.polygonOffsetUnits = 2; tuftM.emissive.set(0x8c94b8); tuftM.emissiveIntensity = .3;
+  const tuftM = furMat(); tuftM.polygonOffset = true; tuftM.polygonOffsetFactor = 2; tuftM.polygonOffsetUnits = 2; tuftM.emissive.set(0xe4e8f6); tuftM.emissiveIntensity = .6;
   const { root: body, j, parts } = humanoid({
     hipsY: 1, pelvis: [.25, .17, .2], pelvisY: .04, torsoY: .05, torso: { dims: [.34, .42, .24], cy: .37 }, head: { y: .82, z: .03, cy: .21, dims: [.26, .28, .24] },
     arm: { x: .39, y: .66, upper: [.125, .56], fore: [.115, .54], hand: [.15, .16, .135] }, leg: { x: .16, thigh: [.15, .58], shin: [.125, .56], foot: [.13, .06, .26] }, mat: furC, skin, th: .022,
@@ -50,7 +50,7 @@ export function makeLofi() {
 
   const fur = [];
   const clump = (host, d, n, len, rad, seed, o) => {
-    const tg = tufts(d, n, len, rad, seed, { base: FUR_SHADE, down: 2, lenVar: .35, jitter: .1, droop: .35, ...o }), m = new THREE.Mesh(tg, tuftM);
+    const tg = tufts(d, Math.round(n * 1.3), len, rad, seed, { tipR: .12, side: 0xb9bfd0, base: FUR_SHADE, down: 2, lenVar: .35, jitter: .1, droop: .35, ...o }), m = new THREE.Mesh(tg, tuftM);
     outline(m, .008, PALETTE.ink); host.add(m); return m;
   };
   const sway = (g, k, ph) => { fur.push({ g, k, ph, a: 0, av: 0, b: 0, bv: 0 }); return g; };
@@ -59,8 +59,8 @@ export function makeLofi() {
   T(parts.head, 12, .14, .08, 3, { down: .5, skip: nr => nr.z > .45 && nr.y < .7 && Math.abs(nr.x) < .85 });
   for (const n of ['L', 'R']) {
     const s = n === 'L' ? 0 : 20;
-    T(parts['upper' + n], 7, .15, .1, 4 + s, { skip: nr => nr.z > .5 }); T(parts['fore' + n], 6, .24, .085, 5 + s, { down: 2.6 });
-    T(parts['thigh' + n], 7, .15, .1, 6 + s, { skip: nr => nr.z > .5 }); T(parts['shin' + n], 6, .26, .085, 7 + s, { down: 2.6 });
+    T(parts['upper' + n], 7, .15, .1, 4 + s, { skip: nr => nr.z > .5 }); T(parts['fore' + n], 6, .17, .09, 5 + s, { down: 1.2 });
+    T(parts['thigh' + n], 7, .15, .1, 6 + s, { skip: nr => nr.z > .5 }); T(parts['shin' + n], 6, .16, .09, 7 + s, { down: 1.0 });
     const fr = sway(grp(j['elb' + n], 0, -.3, 0), 1, s); clump(fr, [.1, .05, .1], 6, .13, .07, 40 + s, { down: 5, skip: nr => nr.y > .2 });
     const fr2 = sway(grp(j['knee' + n], 0, -.3, 0), .7, s + 1); clump(fr2, [.1, .05, .1], 6, .13, .07, 50 + s, { down: 5, skip: nr => nr.y > .2 });
     const man = sway(grp(j.torso, (n === 'L' ? 1 : -1) * .22, .76, 0), .8, s + 2); clump(man, [.14, .08, .13], 4, .15, .08, 60 + s, { down: 5, skip: nr => nr.y < -.2 });
@@ -97,7 +97,7 @@ export function makeLofi() {
   const mats = [furC, skin, tuftM, skinFlat];
   const an = new Animator(j, DEFS, pose, .16);
   const st = { speed: null, nextBlink: 1.5, blinkT: -1, blink: 0, time: 0, pos: new THREE.Vector3(), vx: 0, vz: 0, turn: 0, yaw: 0, hy: 0, vyH: 0, init: false };
-  rig.scale.setScalar(2.2 / (groundBox.max.y - groundBox.min.y + .02));
+  rig.scale.setScalar(2.2 / (groundBox.max.y - groundBox.min.y + .02)); rig.scale.x *= .9; rig.scale.z *= .9;
 
   function idleD(t) {
     const b = Math.sin(TAU * t / 3.4), b2 = Math.sin(TAU * t / 3.4 - .7), s6 = Math.sin(TAU * t / 6.8);
@@ -165,7 +165,7 @@ export function makeLofi() {
       for (const n of ['L', 'R']) {
         const s = n === 'L' ? 1 : -1, shut = clamp(st.blink - (an.pose['eye' + n + '.sy'] || 0), 0, 1);
         j['eye' + n].scale.set(1, Math.max(.08, 1 - .85 * shut), 1);
-        lids[n].position.y = .06 - .045 * shut; lids[n].scale.y = 1 + .5 * shut; lids[n].rotation.z = s * -(.14 + .25 * Math.max(0, ang - .4));
+        lids[n].position.y = .115 - .065 * shut; lids[n].scale.y = 1 + .5 * shut; lids[n].rotation.z = s * -(.04 + .25 * Math.max(0, ang - .4));
       }
       const o = an.pose['mouth.open'] || 0; j.mouthOpen.scale.set(1, Math.max(.001, o * 1.4), 1); j.mouthOpen.visible = o > .02; teeth.visible = an.state === 'attack' || an.state === 'strike';
       mouth.scale.y = (Math.abs(ang) < .12 ? .12 * (ang < 0 ? -1 : 1) : ang) * 1; mouth.scale.y = Math.sign(mouth.scale.y || 1) * Math.max(.12, Math.abs(mouth.scale.y));

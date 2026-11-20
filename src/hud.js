@@ -28,7 +28,7 @@ const CSS = `
 #hud #tr{right:18px;top:16px;width:170px;height:170px;padding:6px;border-radius:50%}
 #hud #tr::before,#hud #tr::after{display:none}
 #hud #tr canvas{width:100%;height:100%;border-radius:50%;display:block}
-#hud #boss{left:50%;top:112px;transform:translateX(-50%);width:480px;display:none;text-align:center;box-shadow:0 0 0 1px var(--mag),0 0 18px rgba(255,45,208,.55),inset 0 0 0 2px rgba(255,45,208,.2),4px 4px 0 var(--ink)}
+#hud #boss{left:50%;top:auto;bottom:122px;width:420px !important;transform:translateX(-50%);width:480px;display:none;text-align:center;box-shadow:0 0 0 1px var(--mag),0 0 18px rgba(255,45,208,.55),inset 0 0 0 2px rgba(255,45,208,.2),4px 4px 0 var(--ink)}
 #hud #boss .lbl{color:#ff8ae8;text-shadow:0 0 8px rgba(255,45,208,.8)}
 #hud #boss .bar{height:16px;margin-top:5px}
 #hud #ab{left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:14px;padding:10px 16px}
