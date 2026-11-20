@@ -52,7 +52,7 @@ function creature(C) {
   LUMP.amt = C.lump || 0; LUMP.seed = C.lumpSeed || 1;
   const { root: body, j, parts } = humanoid({ ...C.rig, mat, skin });
   const root = new THREE.Group(), rig = new THREE.Group(); root.add(rig); rig.add(body); rig.scale.setScalar(C.scale || 1);
-  const glow = new THREE.MeshBasicMaterial({ color: C.glow }), dimCol = new THREE.Color(C.glow).multiplyScalar(.35), brCol = new THREE.Color(C.glow).lerp(new THREE.Color(0xffb060), C.hot || .2);
+  const glow = new THREE.MeshBasicMaterial({ color: C.glow }), dimCol = new THREE.Color(C.glow).multiplyScalar(.35), brCol = new THREE.Color(C.glow).lerp(new THREE.Color(0xe8fff4), C.hot || .2);
   C.cracks.forEach(([k, n, r, st, sp], i) => parts[k].add(cracks(parts[k].userData.dims, n, i * 13 + 5, r, st || 7, sp || .24, glow, 1.012 + (C.lump || 0) * .9)));
   const extra = C.decor({ j, parts, mat, skin, glow, body, rig });
   LUMP.amt = 0;
@@ -106,9 +106,9 @@ function teeth(parent, n, x0, x1, y, z, size, mat, flip) {
 }
 
 export function makeImp() {
-  const bone = toon(0xe8dca0), eyeM = new THREE.MeshBasicMaterial({ color: 0xffd93a });
+  const bone = toon(0xe8dca0), eyeM = new THREE.MeshBasicMaterial({ color: 0x6bff9a });
   return creature({
-    color: SLUDGE, emissive: SLUDGE_E, glow: 0xd04bff, rim: 0xc070ff, rimP: 3.2, rimK: .8, outline: 0x7a56b8, lump: .12, lumpSeed: 3, aura: 1.7, auraY: .5, auraColor: 0x8a30e0, auraO: .16, hatch: 0x3a2060, spikes: [['torso', 5, .16, true]], scale: 1, radius: .4, puddle: .55, dripScale: .55,
+    color: SLUDGE, emissive: SLUDGE_E, glow: 0x39ff8a, rim: 0x6bffb0, rimP: 3.2, rimK: .8, outline: 0x5a46c8, lump: .12, lumpSeed: 3, aura: 1.7, auraY: .5, auraColor: 0x20c070, auraO: .16, hatch: 0x2a1a6a, spikes: [['torso', 5, .16, true]], scale: 1, radius: .4, puddle: .55, dripScale: .55,
     rig: { hipsY: .28, pelvis: [.2, .17, .17], pelvisY: .04, torsoY: .04, torso: { dims: [.25, .27, .21], cy: .22 }, head: { y: .5, cy: .17, dims: [.33, .27, .27], z: .04 }, arm: { x: .27, y: .38, upper: [.06, .3], fore: [.055, .3], hand: [.07, .08, .07] }, leg: { x: .1, thigh: [.07, .17], shin: [.06, .17], foot: [.08, .04, .13] }, th: .02 },
     cracks: [['torso', 3, .014], ['head', 2, .012], ['pelvis', 1, .012], ['upperL', 1, .01], ['upperR', 1, .01]],
     P: { breathT: 1.1, br: .03, tail: .35, armOut: .35, elb: .4, hunch: .3, base: { 'armL.rx': -.25, 'armR.rx': -.25 }, rate: 11, atkDur: .85, atkU: .45, hitK: 1.6, deathDur: .9, H: .28, drop: 1, slam: false,
@@ -116,7 +116,7 @@ export function makeImp() {
     decor({ j, parts, mat, skin }) {
       const head = parts.head;
       eye(head, .105, .04, .225, .085, .1, eyeM, true); eye(head, -.105, .04, .225, .085, .1, eyeM, true);
-      for (const s of [1, -1]) { const h = halo(0xffc820, .34, .7); h.position.set(s * .105, .04, .27); head.add(h); }
+      for (const s of [1, -1]) { const h = halo(0x39ff7a, .34, .7); h.position.set(s * .105, .04, .27); head.add(h); }
       for (const s of [1, -1]) { const br = blob(.09, .025, .05, mat, .01, 8); br.position.set(s * .1, .14, .22); br.rotation.z = s * -.45; head.add(br); const ear = cone(.07, .34, mat, .014, 6); ear.position.set(s * .29, .07, -.02); ear.rotation.z = -s * 1.15; ear.rotation.x = -.35; head.add(ear); }
       const cap = cone(.09, .22, mat, .014, 6); cap.position.set(0, .25, -.02); cap.rotation.x = -.5; head.add(cap);
       const cav = blob(.12, .055, .05, new THREE.MeshBasicMaterial({ color: 0x1a0830 }), 0, 10); cav.position.set(0, -.1, .21); head.add(cav);
@@ -131,9 +131,9 @@ export function makeImp() {
 }
 
 export function makeGolem() {
-  const bone = toon(0xe8dca0), eyeM = new THREE.MeshBasicMaterial({ color: 0xff7bff });
+  const bone = toon(0xe8dca0), eyeM = new THREE.MeshBasicMaterial({ color: 0x39ff8a });
   return creature({
-    color: SLUDGE, emissive: SLUDGE_E, glow: 0xd04bff, rim: 0xc080ff, rimP: 3.2, rimK: .8, outline: 0x7a56b8, lump: .17, lumpSeed: 5, aura: 5.5, auraY: 1.2, auraColor: 0x8a30e0, auraO: .3, hatch: 0x3a2060, spikes: [['upperL', 5, .5], ['upperR', 5, .5], ['torso', 9, .5, true], ['foreL', 3, .35], ['foreR', 3, .35]], scale: .95, radius: 1.2, puddle: 1.9, dripScale: 1.15,
+    color: SLUDGE, emissive: SLUDGE_E, glow: 0xff3df0, rim: 0xff80f4, rimP: 3.2, rimK: .8, outline: 0x6a4ad0, lump: .17, lumpSeed: 5, aura: 5.5, auraY: 1.2, auraColor: 0xc020b8, auraO: .3, hatch: 0x2a1a6a, spikes: [['upperL', 5, .5], ['upperR', 5, .5], ['torso', 9, .5, true], ['foreL', 3, .35], ['foreR', 3, .35]], scale: .95, radius: 1.2, puddle: 1.9, dripScale: 1.15,
     rig: { hipsY: 1.3, pelvis: [.65, .4, .5], pelvisY: .1, torsoY: .12, torso: { dims: [1.0, .95, .78], cy: .85 }, head: { y: 1.8, cy: .1, dims: [.4, .34, .36], z: .35 }, arm: { x: 1.08, y: 1.35, upper: [.36, .95], fore: [.44, .95], hand: [.42, .46, .42] }, leg: { x: .45, thigh: [.36, .7], shin: [.32, .6], foot: [.42, .18, .58] }, th: .045 },
     cracks: [['torso', 8, .035, 8, .2], ['pelvis', 2, .03], ['head', 2, .02], ['upperL', 3, .03], ['upperR', 3, .03], ['foreL', 3, .035], ['foreR', 3, .035], ['thighL', 2, .03], ['thighR', 2, .03], ['shinL', 1, .03], ['shinR', 1, .03]],
     P: { breathT: 2.6, br: .018, tail: 0, armOut: .22, elb: .18, hunch: .32, base: {}, rate: 4.4, atkDur: 1.35, atkU: .5, hitK: 1, deathDur: 1.5, H: 1.3, drop: 1.3, slam: true,
@@ -154,9 +154,9 @@ export function makeGolem() {
 }
 
 export function makeBoss() {
-  const bone = toon(0xe0d2b0), eyeM = new THREE.MeshBasicMaterial({ color: 0xff3355 }), rust = toon(0x7a5442, { emissive: 0x2a1218, emissiveIntensity: .5 }), steel = toon(0x59525e, { emissive: 0x1a1226, emissiveIntensity: .5 }), band = toon(0x2d2830);
+  const bone = toon(0xe0d2b0), eyeM = new THREE.MeshBasicMaterial({ color: 0x39ff8a }), rust = toon(0x7a5442, { emissive: 0x2a1218, emissiveIntensity: .5 }), steel = toon(0x59525e, { emissive: 0x1a1226, emissiveIntensity: .5 }), band = toon(0x2d2830);
   return creature({
-    boss: true, color: 0x2e1c24, emissive: 0x1a0a12, glow: PALETTE.boss, rim: 0xff6a58, rimP: 3.0, rimK: 1.4, outline: 0xd0707a, lump: .14, lumpSeed: 9, aura: 12, auraY: 3.2, auraColor: 0xd01838, auraO: .26, hatch: 0x401820, spikes: [['upperL', 6, .8], ['upperR', 6, .8], ['foreL', 4, .6], ['foreR', 4, .6], ['torso', 10, .8, true], ['pelvis', 4, .5]], scale: 1.8, radius: 4.4, puddle: 4, dripScale: 2.2, skinColor: 0x3d2830,
+    boss: true, color: 0x2a1a48, emissive: 0x160a36, glow: 0xff2bd0, rim: 0xff6af0, rimP: 3.0, rimK: 1.4, outline: 0x9a70ff, lump: .14, lumpSeed: 9, aura: 12, auraY: 3.2, auraColor: 0xc010a0, auraO: .26, hatch: 0x2a1060, spikes: [['upperL', 6, .8], ['upperR', 6, .8], ['foreL', 4, .6], ['foreR', 4, .6], ['torso', 10, .8, true], ['pelvis', 4, .5]], scale: 1.8, radius: 4.4, puddle: 4, dripScale: 2.2, skinColor: 0x352060,
     rig: { hipsY: 2.15, pelvis: [1.1, .7, .85], pelvisY: .2, torsoY: .3, torso: { dims: [1.85, 1.5, 1.35], cy: 1.2 }, head: { y: 2.65, cy: .1, dims: [.72, .56, .62], z: .75 }, arm: { x: 2.1, y: 2.1, upper: [.7, 1.7], fore: [.85, 1.8], hand: [.85, .9, .8], depth: 1 }, leg: { x: .85, thigh: [.7, 1.2], shin: [.62, 1.1], foot: [.75, .3, 1.0] }, th: .08 },
     cracks: [['torso', 16, .055, 9, .22], ['pelvis', 3, .05], ['head', 3, .035], ['upperL', 4, .05], ['upperR', 4, .05], ['foreL', 4, .055], ['foreR', 4, .055], ['thighL', 3, .05], ['thighR', 3, .05], ['shinL', 2, .05], ['shinR', 2, .05]],
     P: { breathT: 3.4, br: .014, tail: 0, armOut: .3, elb: .25, hunch: .3, base: {}, rate: 3.0, atkDur: 1.9, atkU: .5, hitK: .55, deathDur: 2.4, H: 2.15, drop: 2, slam: true,
@@ -164,13 +164,13 @@ export function makeBoss() {
     decor({ j, parts, mat, skin, glow }) {
       const head = parts.head, torso = j.torso, puffs = [];
       for (const s of [1, -1]) { eye(head, s * .24, .12, .55, .13, .07, eyeM, false); const br = blob(.24, .07, .15, mat, .04, 8); br.position.set(s * .22, .27, .5); br.rotation.z = s * -.4; head.add(br); const horn = cone(.12, .6, mat, .035, 6); horn.position.set(s * .5, .35, -.05); horn.rotation.z = -s * .6; head.add(horn); }
-      const cav = blob(.4, .17, .1, new THREE.MeshBasicMaterial({ color: 0x300814 }), 0, 10); cav.position.set(0, -.17, .5); head.add(cav);
+      const cav = blob(.4, .17, .1, new THREE.MeshBasicMaterial({ color: 0x1a0830 }), 0, 10); cav.position.set(0, -.17, .5); head.add(cav);
       const jaw = j.jaw = grp(head, 0, -.18, .2); const jb = blob(.42, .13, .36, mat, .05, 10); jb.position.set(0, -.08, .25); jaw.add(jb);
       teeth(head, 7, -.34, .34, -.14, .56, .045, bone, true); teeth(jaw, 6, -.3, .3, -.03, .52, .05, bone, false);
       const core = blob(.5, .6, .16, glow, 0, 12); core.position.set(0, .35, 1.2); core.rotation.x = -.1; parts.torso.add(core);
-      const hot = blob(.26, .34, .2, new THREE.MeshBasicMaterial({ color: 0xfff0c0 }), 0, 12); hot.position.set(0, .38, 1.24); parts.torso.add(hot);
-      const coreHalo = halo(0xff3050, 3.4, .75); coreHalo.position.set(0, .38, 1.5); parts.torso.add(coreHalo);
-      const coreHalo2 = halo(0xffd080, 1.5, .8); coreHalo2.position.set(0, .38, 1.55); parts.torso.add(coreHalo2);
+      const hot = blob(.26, .34, .2, new THREE.MeshBasicMaterial({ color: 0xe8fff0 }), 0, 12); hot.position.set(0, .38, 1.24); parts.torso.add(hot);
+      const coreHalo = halo(0xff30d0, 3.4, .75); coreHalo.position.set(0, .38, 1.5); parts.torso.add(coreHalo);
+      const coreHalo2 = halo(0x9bffcc, 1.5, .8); coreHalo2.position.set(0, .38, 1.55); parts.torso.add(coreHalo2);
       for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + .3, sh = cone(.05, .9 + (i % 2) * .5, glow, 0, 4); sh.position.set(Math.cos(a) * .3, .38 + Math.sin(a) * .36, 1.2); sh.lookAt(sh.position.x * 3, .38 + Math.sin(a) * 2, 3); sh.rotateX(Math.PI / 2); parts.torso.add(sh); }
       const hump = blob(1.5, 1.0, 1.0, mat, .07, 14); hump.position.set(0, 2.2, -.65); torso.add(hump);
       for (const [x, y, z, a, b, c] of [[1.5, 2.15, .05, .75, .6, .7], [-1.55, 2.1, 0, .7, .55, .65], [.9, 2.7, -.55, .6, .5, .55], [-.8, 2.75, -.7, .55, .45, .5]]) { const l = blob(a, b, c, mat, .06, 12); l.position.set(x, y, z); torso.add(l); }
