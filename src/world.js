@@ -46,25 +46,37 @@ uniform float uT;varying vec3 vD;
 §NOISE§
 void main(){
   vec3 d=normalize(vD);float h=d.y;
-  vec3 top=vec3(.40,.72,.90),mid=vec3(.86,.84,.90),hor=vec3(1.,.70,.58),glow=vec3(1.,.88,.62);
-  vec3 col=mix(hor,mid,smoothstep(0.,.3,h));col=mix(col,top,smoothstep(.25,.9,h));
-  float sg=pow(max(dot(d,normalize(vec3(-.25,.07,-1.))),0.),10.);
-  col=mix(col,glow,sg*.85*(1.-smoothstep(0.,.4,h)));
-  vec2 uv=d.xz/(abs(h)+.28);
+  vec3 top=vec3(.015,.02,.12),mid=vec3(.07,.06,.34),hor=vec3(.36,.16,.66);
+  vec3 col=mix(hor,mid,smoothstep(0.,.28,h));col=mix(col,top,smoothstep(.22,.85,h));
+  vec3 M=normalize(vec3(-.55,.44,-1.));
+  float md=dot(d,M);
+  vec3 tx=normalize(cross(M,vec3(0.,1.,0.))),ty=cross(tx,M);
+  vec2 ml=vec2(dot(d,tx),dot(d,ty))/.24;float mr=length(ml);
+  float halo=exp(-max(mr-1.,0.)*1.6);
+  col+=vec3(.42,.28,.95)*halo*.55*step(0.,md);
+  col+=vec3(.5,.55,1.)*pow(max(md,0.),60.)*.5;
+  float disc=1.-smoothstep(.97,1.,mr);
+  float cr=smoothstep(.1,.14,length(ml-vec2(-.35,.3)))*smoothstep(.07,.1,length(ml-vec2(.38,-.25)))*smoothstep(.05,.08,length(ml-vec2(.1,.55)))*smoothstep(.08,.12,length(ml-vec2(-.15,-.45)));
+  vec3 mc=mix(vec3(.62,.5,1.),vec3(.88,.84,1.),smoothstep(.3,.9,1.-mr*.6));
+  mc=mix(mc*.9,mc,cr);
+  mc=mix(mc,vec3(.1,.06,.3),smoothstep(.97,1.,mr)*.6);
+  col=mix(col,mc,disc*step(0.,md));
+  vec2 st=vec2(atan(d.z,d.x)*80.,h*80.);vec2 sc=floor(st),sf=fract(st)-.5;
+  float sh=h21(sc);float sd=smoothstep(.16,0.,length(sf))*step(.965,sh)*(.6+.4*sin(uT*2.+sh*40.));
+  col+=vec3(.8,.9,1.)*sd*smoothstep(.0,.2,h)*(1.-disc);
+  vec2 uv=d.xz/(abs(h)+.3);
   vec2 c0=uv-vec2(-7.,5.);float ang=.9*exp(-length(c0)*.06);
   float cs=cos(ang),sn=sin(ang);vec2 r=mat2(cs,-sn,sn,cs)*c0;
-  vec2 s=vec2(r.x*.55,r.y*4.2)+vec2(uT*.004,0.);
-  s.y+=vnz(r*.35)*3.+sin(r.x*.6)*1.2;
+  vec2 s=vec2(r.x*.55,r.y*4.2)+vec2(uT*.006,0.);
+  s.y+=vnz(r*.35)*3.+sin(r.x*.6)*1.2+sin(uT*.1+r.x*.3)*.4;
   float band=fbmz(s*1.1);
-  float vis=smoothstep(-.02,.12,h)*(1.-smoothstep(.3,.62,h));
-  float c1=smoothstep(.56,.572,band),c2=smoothstep(.67,.68,band);
-  float lineA=1.-smoothstep(0.,.012,abs(band-.56));
-  float lineB=1.-smoothstep(0.,.01,abs(fract(band*18.)-.5)*.1-.0);
-  vec3 cc=mix(vec3(.93,.90,.93),vec3(1.,.98,.96),c2);cc=mix(cc,hor,(1.-smoothstep(0.,.3,h))*.5);
-  col=mix(col,cc,c1*.92*vis);
-  col=mix(col,vec3(.42,.48,.72),lineA*.0*vis);
-  col=mix(col,vec3(.55,.6,.8),c1*step(.93,fract(band*24.))*.35*vis);
-  col=mix(col,vec3(.81,.84,.90),smoothstep(.0,-.12,h));
+  float vis=smoothstep(-.02,.1,h)*(1.-smoothstep(.45,.85,h));
+  float c1=smoothstep(.56,.572,band),c2=smoothstep(.67,.68,band),c3=smoothstep(.76,.77,band);
+  vec3 ac=mix(vec3(.12,.45,1.),vec3(.2,1.,.55),smoothstep(.0,.35,vnz(r*.12)));
+  ac=mix(ac,vec3(.72,.35,1.),c2*.7);ac=mix(ac,vec3(.8,1.,.95),c3*.6);
+  col=mix(col,col*.6+ac*.75,c1*.8*vis*(1.-disc));
+  col+=ac*step(.93,fract(band*24.))*.18*vis*c1;
+  col=mix(col,vec3(.07,.05,.25),smoothstep(.0,-.12,h));
   gl_FragColor=vec4(pow(col,vec3(2.2)),1.);
   #include <colorspace_fragment>
 }`.replace('§NOISE§',NOISE);
@@ -76,23 +88,23 @@ uniform float uT,uClean;varying vec2 vUv;varying vec3 vW;
 void main(){
   vec2 p=vW.xz*.3;float fl=uT*.5;
   float n=fbmz(p*1.3+vec2(0.,fl*.4)+vnz(p*3.+uT*.2));
-  vec3 sl=mix(vec3(.06,.03,.10),vec3(.12,.06,.18),step(.52,n));
+  vec3 sl=mix(vec3(.08,.5,.12),vec3(.2,.95,.25),step(.52,n));
   vec3 vr=vor(p*1.7+vec2(0.,fl*.15));
   float crack=1.-smoothstep(0.,.045,vr.y);
-  sl+=vec3(.6,.16,.75)*crack*(.6+.3*sin(uT*2.+vr.z*20.));
+  sl+=vec3(1.,.15,.8)*crack*(.7+.3*sin(uT*2.+vr.z*20.));
   vec2 bp=vW.xz*.9;vec2 bi=floor(bp);float bh=h21(bi);float br=length(fract(bp)-.5);float ph=fract(uT*.25+bh);
   float rad=.1+.2*ph;float ring=smoothstep(.05,0.,abs(br-rad))*step(.45,bh)*(1.-ph);
-  sl=mix(sl,vec3(.9,.45,1.),ring*.9);
-  sl+=vec3(.7,.15,.9)*smoothstep(.6,1.,abs(vUv.x))*.5;
-  vec3 cl=mix(vec3(.18,.66,.68),vec3(.36,.82,.82),step(.5,fbmz(p*2.+vec2(0.,-fl))));
-  float streak=step(.93,fract(p.y*3.-fl*1.2+n*2.5));cl=mix(cl,vec3(.8,.97,.97),streak*.6);
-  float foam=smoothstep(.78,.95,abs(vUv.x)+(vnz(p*4.)-.5)*.25);cl=mix(cl,vec3(.93,.98,1.),foam);
+  sl=mix(sl,vec3(.6,1.,.5),ring*.9);
+  sl+=vec3(.9,.1,.7)*smoothstep(.6,1.,abs(vUv.x))*.45;sl=min(sl,vec3(.75,.95,.75));
+  vec3 cl=mix(vec3(.05,.42,.95),vec3(.14,.68,1.),step(.5,fbmz(p*2.+vec2(0.,-fl))));
+  float streak=step(.93,fract(p.y*3.-fl*1.2+n*2.5));cl=mix(cl,vec3(.6,.95,1.),streak*.7);
+  float foam=smoothstep(.78,.95,abs(vUv.x)+(vnz(p*4.)-.5)*.25);cl=mix(cl,vec3(.85,.97,1.),foam);
   float dist=abs(vUv.y-.5)*2.;float k=uClean*1.35-dist;
   float m=smoothstep(0.,.06,k);
   float band=smoothstep(0.,.03,k)*(1.-smoothstep(.06,.26,k));
   vec3 vc=vor(p*2.4);float ice=1.-smoothstep(0.,.06,vc.y);
-  vec3 fz=mix(vec3(.75,.93,.98),vec3(.55,.8,.92),vc.z);
-  float dd=smoothstep(35.,220.,length(vW-cameraPosition));sl=mix(sl,vec3(.30,.18,.44)+vec3(.4,.14,.5)*crack*.8,dd*.7);cl=mix(cl,vec3(.45,.78,.82),dd*.4);
+  vec3 fz=mix(vec3(.55,.85,1.),vec3(.4,.6,1.),vc.z);
+  float dd=smoothstep(35.,220.,length(vW-cameraPosition));sl=mix(sl,vec3(.18,.2,.4)+vec3(.8,.1,.6)*crack*.8,dd*.6);cl=mix(cl,vec3(.2,.4,.9),dd*.4);
   vec3 col=mix(sl,cl,m);col=mix(col,fz,band*.85);col=mix(col,vec3(1.),band*ice);
   gl_FragColor=vec4(pow(col,vec3(2.2)),1.);
   #include <colorspace_fragment>
@@ -111,7 +123,7 @@ function makeArch(scene,cx,cz,span,H,ang,thick,mat){
     const nz=(vn(p.x*.15+p.y*.1,p.z*.15+p.y*.12)-.5)*r*.7;
     const rr=r+nz+(vn(a2*1.3+t*20,t*7)-.5)*r*.15;
     return p.add(B.clone().multiplyScalar(Math.cos(a2)*rr*1.5)).add(Nn.multiplyScalar(Math.sin(a2)*rr));};
-  const pos=[],col=[],idx=[];const ci=new THREE.Color(PALETTE.ice),cs=new THREE.Color(0xb9d6e6),cc=new THREE.Color();
+  const pos=[],col=[],idx=[];const ci=new THREE.Color(0x7ab4ff),cs=new THREE.Color(0x6a58e8),cc=new THREE.Color();
   for(let i=0;i<=N;i++){const t=i/N;for(let j=0;j<R;j++){const v=ringPt(t,j/R*Math.PI*2);pos.push(v.x,v.y,v.z);
     cc.copy(ci).lerp(cs,sstep(.3,.7,vn(v.x*.08,v.y*.1+v.z*.05)));col.push(cc.r,cc.g,cc.b)}}
   for(let i=0;i<N;i++)for(let j=0;j<R;j++){const a0=i*R+j,b0=i*R+(j+1)%R,c0=(i+1)*R+j,d0=(i+1)*R+(j+1)%R;idx.push(a0,b0,c0,b0,d0,c0)}
@@ -124,17 +136,18 @@ function makeArch(scene,cx,cz,span,H,ang,thick,mat){
     const lift=new THREE.Vector3().copy(ringPt(t,aa)).sub(mid).multiplyScalar(.15);
     L.push(p1.x+lift.x,p1.y+lift.y,p1.z+lift.z,p2.x+lift.x,p2.y+lift.y,p2.z+lift.z)}
   const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(L,3));
-  scene.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x4f6a9c})));
+  scene.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x58f0ff})));
   return {crown:P(.5).add(new THREE.Vector3(0,thick*1.2,0))};
 }
 
-function makeCrystalGeo(){const pts=[new THREE.Vector2(0,1),new THREE.Vector2(.95,.65),new THREE.Vector2(1,0),new THREE.Vector2(0,0)];return new THREE.LatheGeometry(pts,6)}
+function makeCrystalGeo(){const pts=[[0,0],[.5,.03],[.85,.16],[1,.36],[.88,.58],[.55,.78],[.2,.93],[0,1.08]].map(p=>new THREE.Vector2(p[0],p[1]));return new THREE.LatheGeometry(pts,8)}
 
 export function createWorld(scene){
-  scene.fog=new THREE.Fog(0xd7d6e6,100,480);
-  scene.background=new THREE.Color(0xd3d9e6);
-  const hemi=new THREE.HemisphereLight(0xe2f2ff,0x9a7a96,1.05);scene.add(hemi);
-  const sun=new THREE.DirectionalLight(0xfff0dc,2.4);sun.position.set(-60,80,40);scene.add(sun);
+  scene.fog=new THREE.Fog(0x1a1250,90,460);
+  scene.background=new THREE.Color(0x0b0a2e);
+  const hemi=new THREE.HemisphereLight(0x6a7cff,0x4a1a90,.6);scene.add(hemi);
+  const sun=new THREE.DirectionalLight(0xd0daff,1.5);sun.position.set(-60,80,-40);scene.add(sun);
+  const rimL=new THREE.DirectionalLight(0xb06bff,.9);rimL.position.set(50,30,70);scene.add(rimL);
 
   const uT={value:0};
   const sky=new THREE.Mesh(new THREE.SphereGeometry(1000,32,16),new THREE.ShaderMaterial({uniforms:{uT},vertexShader:'varying vec3 vD;void main(){vD=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:SKY_FRAG,side:THREE.BackSide,depthWrite:false,depthTest:false,fog:false}));
@@ -147,18 +160,18 @@ export function createWorld(scene){
   for(let i=0;i<tp.count;i++)tp.setY(i,heightAt(tp.getX(i),tp.getZ(i)));
   tg.computeVertexNormals();
   const tc=new Float32Array(tp.count*3),tn=tg.attributes.normal,c=new THREE.Color();
-  const cIce=new THREE.Color(0xd9eef8),cLil=new THREE.Color(0xa6c4e6),cRock=new THREE.Color(PALETTE.rock),cRock2=new THREE.Color(0xb8806a),cWet=new THREE.Color(0xaecbe0),cDeep=new THREE.Color(0x7aa7c2),cHigh=new THREE.Color(0xe9f4fa);
+  const cIce=new THREE.Color(0x2a80f0),cLil=new THREE.Color(0x8a5cff),cRock=new THREE.Color(PALETTE.rock),cRock2=new THREE.Color(0x3a2f8a),cSlope=new THREE.Color(0x4a2fc8),cWet=new THREE.Color(0x2a6aea),cDeep=new THREE.Color(0x1a2a8a),cHigh=new THREE.Color(0xbfe2ff);
   for(let i=0;i<tp.count;i++){
     const x=tp.getX(i),y=tp.getY(i),z=tp.getZ(i),slope=1-tn.getY(i);
     c.copy(cIce).lerp(cLil,sstep(.5,.7,vn(x*.05,z*.05)));
-    c.lerp(cHigh,sstep(18,45,y)*.7);
+    c.lerp(cHigh,sstep(18,45,y)*.7);c.lerp(cSlope,sstep(.12,.45,slope)*.8);
     c.lerp(cWet,(1-sstep(-1.4,1.4,y))*.8);c.lerp(cDeep,(1-sstep(-2,-1.2,y)));
     tc[i*3]=c.r;tc[i*3+1]=c.g;tc[i*3+2]=c.b;
   }
   tg.setAttribute('color',new THREE.BufferAttribute(tc,3));
   const tmat=toon(0xffffff,{vertexColors:true});
   tmat.onBeforeCompile=s=>{
-    s.uniforms.uR1={value:cRock.clone()};s.uniforms.uR2={value:cRock2.clone()};s.uniforms.uR3={value:new THREE.Color(0x9b6a6c)};
+    s.uniforms.uR1={value:cRock.clone()};s.uniforms.uR2={value:cRock2.clone()};s.uniforms.uR3={value:new THREE.Color(0x6a3a9a)};
     s.vertexShader=s.vertexShader.replace('void main() {','varying vec3 vWN;varying vec3 vWP;\nvoid main() {').replace('#include <begin_vertex>','#include <begin_vertex>\nvWN=normal;vWP=(modelMatrix*vec4(position,1.)).xyz;');
     s.fragmentShader=s.fragmentShader.replace('void main() {',`varying vec3 vWN;varying vec3 vWP;uniform vec3 uR1,uR2,uR3;
       float hh(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -166,10 +179,12 @@ export function createWorld(scene){
       void main() {`).replace('#include <color_fragment>',`#include <color_fragment>
       {float sl=1.-normalize(vWN).y;float rv=sl+(nn(vWP.xz*.35+vWP.y*.2)-.5)*.1-smoothstep(35.,60.,vWP.y)*.35;float rk=step(.4,rv);
        float b=fract(vWP.y*.16+nn(vWP.xz*.09)*2.4+nn(vWP.xz*.45)*.3);vec3 rc=mix(uR1,b<.6?uR1:(b<.85?uR2:uR3),.3)*(.94+.1*nn(vWP.xz*1.7));
-       diffuseColor.rgb=mix(diffuseColor.rgb,rc,rk);}`);
+       diffuseColor.rgb=mix(diffuseColor.rgb,rc,rk);
+       float vl=abs(nn(vWP.xz*.11+vec2(3.,7.))-.5),vl2=abs(nn(vWP.xz*.23+vec2(11.,2.))-.5);float vein=max(1.-smoothstep(.0,.014,vl),(1.-smoothstep(.0,.01,vl2))*.7);
+       diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.55,.95,1.),vein*(1.-rk)*.85);}`);
   };
   tmat.customProgramCacheKey=()=>'terrain';
-  const terrain=new THREE.Mesh(tg,hatch(tmat,{strength:.5,scale:6,t1:.18,t2:.45}));scene.add(terrain);
+  const terrain=new THREE.Mesh(tg,hatch(tmat,{strength:.5,scale:6,t1:.18,t2:.45,tint:0x3a1fa0}));scene.add(terrain);
 
   // streams
   const colliders=[],streams=[],waterMats=[],targets=[0,0,0,0],cleanAmt=[0,0,0,0];
@@ -185,22 +200,24 @@ export function createWorld(scene){
   }
 
   // arches
-  const archMat=hatch(toon(0xffffff,{vertexColors:true,emissive:0x5a86c0,emissiveIntensity:.3}),{strength:.6,scale:5});
+  const archMat=hatch(toon(0xffffff,{vertexColors:true,emissive:0x3a5cff,emissiveIntensity:.22}),{strength:.7,scale:5,tint:0x3a1fa0});
   const A1=makeArch(scene,-22,-58,58,44,.35,5,archMat);
   const A2=makeArch(scene,46,-92,44,28,-.6,3.8,archMat);
   makeArch(scene,-95,-130,70,52,1.0,6,archMat);
   makeArch(scene,100,-30,40,22,-1.1,3.4,archMat);
 
   // crystals
-  const crystalGeo=makeCrystalGeo(),crystals=[];
-  const cMatIce=toon(0xbfe6f5,{emissive:0x2f87c8,emissiveIntensity:.5,transparent:true,opacity:.88,side:THREE.DoubleSide});
-  const cMatAmb=toon(0xffd7a0,{emissive:0xff8a3a,emissiveIntensity:.7,transparent:true,opacity:.9,side:THREE.DoubleSide});
+  const crystalGeo=makeCrystalGeo(),crystals=[],haloGeo=new THREE.SphereGeometry(1,12,8);
+  const haloB=new THREE.MeshBasicMaterial({color:0x3a8cff,transparent:true,opacity:.2,blending:THREE.AdditiveBlending,depthWrite:false}),haloG=new THREE.MeshBasicMaterial({color:0x2aff80,transparent:true,opacity:.2,blending:THREE.AdditiveBlending,depthWrite:false});
+  const cMatIce=toon(0x6ab8ff,{emissive:0x2f7aff,emissiveIntensity:.8,transparent:true,opacity:.92,side:THREE.DoubleSide,rim:1});
+  const cMatAmb=toon(0x7affb0,{emissive:0x18e060,emissiveIntensity:.8,transparent:true,opacity:.92,side:THREE.DoubleSide,rim:1});
   function cluster(x,z,sc0,amber){const sc=sc0*1.8;
     const g=new THREE.Group();g.position.set(x,heightAt(x,z)-.3,z);
     const n=5+Math.floor(hash(x,z)*3);
     for(let i=0;i<n;i++){const m=new THREE.Mesh(crystalGeo,amber?cMatAmb:cMatIce);const h=(i==0?1:.35+hash(i,x)*.5)*sc;
-      m.scale.set(h*.22,h,h*.22);m.position.set((hash(i,z)-.5)*sc*.9,0,(hash(x,i)-.5)*sc*.9);
+      m.scale.set(h*.34,h,h*.34);m.position.set((hash(i,z)-.5)*sc*.9,0,(hash(x,i)-.5)*sc*.9);
       m.rotation.set((hash(i,2)-.5)*.7,hash(i,9)*6,(hash(i,4)-.5)*.7);g.add(m);outline(m,.05);}
+    const hm=new THREE.Mesh(haloGeo,amber?haloG:haloB);hm.scale.setScalar(sc*.95);hm.position.y=sc*.5;g.add(hm);
     scene.add(g);crystals.push(g);colliders.push({x,y:g.position.y+.35*sc,z,r:.5*sc,solid:true},{x,y:g.position.y+.95*sc,z,r:.28*sc});
   }
   streams.forEach((s,i)=>{const dx=(i%2?1:-1)*(riverW(s.z)+9);cluster(s.x+dx,s.z+6,3.4+i*.4,i%2==0);cluster(s.x-dx*.7,s.z-9,2.2,false)});
@@ -212,12 +229,12 @@ export function createWorld(scene){
   const dm=new THREE.Object3D();
   for(let i=0;i<NR;i++){const x=(hash(i,5)-.5)*260,z=(hash(i,6)-.5)*260,sc=1+hash(i,7)*hash(i,8)*5;const y=heightAt(x,z);
     dm.position.set(x,y+sc*.2,z);dm.scale.set(sc,sc*(.6+hash(i,9)*.5),sc);dm.rotation.set(hash(i,1)*6,hash(i,2)*6,hash(i,3)*6);dm.updateMatrix();rocks.setMatrixAt(i,dm.matrix);
-    rocks.setColorAt(i,c.setHex(hash(i,4)<.5?PALETTE.rock:0xcfe3ee));if(sc>1.8)colliders.push({x,y:y+sc*.3,z,r:sc*.85,solid:sc>2.6})}
+    rocks.setColorAt(i,c.setHex(hash(i,4)<.5?PALETTE.rock:0x6a78d8));if(sc>1.8)colliders.push({x,y:y+sc*.3,z,r:sc*.85,solid:sc>2.6})}
   scene.add(rocks);
 
   // floating islands
   const islands=[];
-  const iceMat=hatch(toon(0xffffff,{vertexColors:true,emissive:0x5a86c0,emissiveIntensity:.3}),{strength:.55,scale:5});
+  const iceMat=hatch(toon(0xffffff,{vertexColors:true,emissive:0x3a5cff,emissiveIntensity:.22}),{strength:.65,scale:5,tint:0x3a1fa0});
   function island(x,y,z,r,seed){
     let g=new THREE.IcosahedronGeometry(r,2);const p=g.attributes.position,col=[];
     for(let i=0;i<p.count;i++){const vx=p.getX(i),vy=p.getY(i),vz=p.getZ(i);
@@ -226,10 +243,11 @@ export function createWorld(scene){
       p.setXYZ(i,vx*n*(vy<0?1-(-vy/r)*.55:1),vy*down*n,vz*n*(vy<0?1-(-vy/r)*.55:1))}
     g.computeVertexNormals();
     const pp=g.attributes.position;const ci=new THREE.Color();
-    for(let i=0;i<pp.count;i++){const yy=pp.getY(i)/r;ci.setHex(PALETTE.ice).lerp(new THREE.Color(PALETTE.iceShadow),sstep(.1,-.5,yy)*.8).lerp(new THREE.Color(0xb98e78),sstep(-.55,-1.2,yy)*.9);col.push(ci.r,ci.g,ci.b)}
+    for(let i=0;i<pp.count;i++){const yy=pp.getY(i)/r;ci.setHex(0x78c0ff).lerp(new THREE.Color(PALETTE.iceShadow),sstep(.1,-.5,yy)*.8).lerp(new THREE.Color(0x3a1f8a),sstep(-.55,-1.2,yy)*.9);col.push(ci.r,ci.g,ci.b)}
     g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
     const m=new THREE.Mesh(g,iceMat);m.position.set(x,y,z);
     const o=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:PALETTE.ink,side:THREE.BackSide}));o.scale.setScalar(1.035);m.add(o);
+    const gl=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x6a5cff,transparent:true,opacity:.13,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.BackSide}));gl.scale.setScalar(1.28);m.add(gl);
     scene.add(m);islands.push({m,y,ph:seed});return m;
   }
   const IS=[[40,54,-62,9],[26,42,-76,5],[11,34,-88,3.5],[-5,29,-96,2.6],[-19,25,-102,1.9],[-70,70,-165,16],[78,78,-150,13],[-40,48,-120,6]];
@@ -237,10 +255,10 @@ export function createWorld(scene){
   // tether tubes
   const tubeMat=new THREE.ShaderMaterial({uniforms:{uT},transparent:false,fog:false,
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:`uniform float uT;varying vec2 vUv;void main(){float p=fract(vUv.x*14.-uT*.7);float pulse=smoothstep(0.,.25,p)*(1.-smoothstep(.25,.8,p));vec3 c=mix(vec3(.25,.78,1.),vec3(.9,1.,1.),pulse*.85);gl_FragColor=vec4(pow(c,vec3(2.2)),1.);
+    fragmentShader:`uniform float uT;varying vec2 vUv;void main(){float p=fract(vUv.x*14.-uT*.7);float pulse=smoothstep(0.,.25,p)*(1.-smoothstep(.25,.8,p));vec3 c=mix(vec3(.2,.5,1.),vec3(.5,1.,.7),pulse*.9);gl_FragColor=vec4(pow(c,vec3(2.2)),1.);
 #include <colorspace_fragment>
 }`});
-  const haloMat=new THREE.MeshBasicMaterial({color:0x55c8ff,transparent:true,opacity:.3,depthWrite:false,fog:false,blending:THREE.AdditiveBlending});
+  const haloMat=new THREE.MeshBasicMaterial({color:0x4a7cff,transparent:true,opacity:.3,depthWrite:false,fog:false,blending:THREE.AdditiveBlending});
   const haloMat2=haloMat.clone();haloMat2.opacity=.1;
   const chain=[A1.crown,...IS.slice(0,5).map(q=>new THREE.Vector3(q[0],q[1],q[2]))];
   const base=new THREE.CatmullRomCurve3(chain);
@@ -256,8 +274,8 @@ export function createWorld(scene){
     scene.add(new THREE.Mesh(new THREE.TubeGeometry(cv,120,.4,6),tubeMat))});
 
   // distant peak rings
-  [[330,0xa9bbd6,70,1],[430,0xbccadf,95,2],[540,0xd0d9ea,120,3]].forEach(([R,col,H,sd])=>{
-    const N=360,pos=[],idx=[],cl=[],top=new THREE.Color(0xf4f8ff),base=new THREE.Color(col),sh=new THREE.Color(col).multiplyScalar(.78),cc=new THREE.Color();
+  [[330,0x2a2a8a,70,1],[430,0x241c70,95,2],[540,0x1c1858,120,3]].forEach(([R,col,H,sd])=>{
+    const N=360,pos=[],idx=[],cl=[],top=new THREE.Color(0x7a8cff),base=new THREE.Color(col),sh=new THREE.Color(col).multiplyScalar(.78),cc=new THREE.Color();
     for(let i=0;i<=N;i++){const a=i/N*Math.PI*2,x=Math.cos(a),z=Math.sin(a);
       const n=ridge(Math.cos(a)*3+sd*9,Math.sin(a)*3+sd*4,5),spire=Math.pow(vn(a*9+sd*20,sd),6)*1.3;
       const h=H*(.25+.8*n+spire)*(.8+.4*vn(a*40,sd));
@@ -275,7 +293,7 @@ export function createWorld(scene){
   const snow=new THREE.Points(sg,new THREE.ShaderMaterial({uniforms:{uT},transparent:true,depthWrite:false,fog:false,
     vertexShader:`uniform float uT;attribute float aR;void main(){vec3 box=vec3(90.,45.,90.);vec3 p=position;p.y-=uT*(.9+aR);p.x+=sin(uT*.3+aR*20.)*2.+uT*.8;
       p=mod(p-cameraPosition+box*.5,box)-box*.5+cameraPosition;vec4 mv=viewMatrix*vec4(p,1.);gl_PointSize=clamp((1.+aR*2.)*70./-mv.z,1.5,4.);gl_Position=projectionMatrix*mv;}`,
-    fragmentShader:`void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(1.,1.,1.,.85);}`}));
+    fragmentShader:`void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(.7,.88,1.,.85);}`}));
   snow.frustumCulled=false;scene.add(snow);
 
   // debug fly cam (key F)
@@ -305,7 +323,7 @@ export function createWorld(scene){
       for(let i=0;i<4;i++){const d=targets[i]-cleanAmt[i];cleanAmt[i]+=Math.sign(d)*Math.min(Math.abs(d),dt*.45);waterMats[i].uniforms.uClean.value=cleanAmt[i]}
       islands.forEach((o,i)=>{o.m.position.y=o.y+Math.sin(t*.5+o.ph)*.7;o.m.rotation.y=Math.sin(t*.1+o.ph)*.05});
       crystals.forEach((g,i)=>{});
-      cMatIce.emissiveIntensity=.45+.2*Math.sin(t*1.7);cMatAmb.emissiveIntensity=.65+.25*Math.sin(t*2.1);
+      cMatIce.emissiveIntensity=.8+.35*Math.sin(t*1.7);cMatAmb.emissiveIntensity=.8+.35*Math.sin(t*2.1);
     },
     heightAt,
     colliders,

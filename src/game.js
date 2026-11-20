@@ -74,8 +74,8 @@ export function createGame({ scene, camera, renderer, world } = {}) {
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
   const geo = { spike: new THREE.ConeGeometry(.5, 2.4, 5).translate(0, 1.2, 0), ring: new THREE.RingGeometry(.9, 1, 64).rotateX(-Math.PI / 2), glow: new THREE.RingGeometry(.55, 1, 40).rotateX(-Math.PI / 2), disc: new THREE.CircleGeometry(1, 48).rotateX(-Math.PI / 2), plane: new THREE.PlaneGeometry(1, 1), arc: new THREE.RingGeometry(1.5, 2.9, 28, 1, -Math.PI / 2 - .95, 1.9).rotateX(-Math.PI / 2) };
-  const spikeMat = new THREE.MeshBasicMaterial({ color: 0xeafcff }), spikeInk = new THREE.MeshBasicMaterial({ color: PALETTE.ink, side: THREE.BackSide });
-  const spikeMatDark = new THREE.MeshBasicMaterial({ color: 0x5a1f2e }), spikeMatSlud = new THREE.MeshBasicMaterial({ color: 0x3a2150 });
+  const spikeMat = new THREE.MeshBasicMaterial({ color: 0xa8e4ff }), spikeInk = new THREE.MeshBasicMaterial({ color: PALETTE.ink, side: THREE.BackSide });
+  const spikeMatDark = new THREE.MeshBasicMaterial({ color: 0xc41a7e }), spikeMatSlud = new THREE.MeshBasicMaterial({ color: 0x7a3aff });
   const fx = [];
   const addFx = (obj, life, fn, fnEnd) => { scene.add(obj); fx.push({ obj, life, t: 0, fn, fnEnd }); };
 
@@ -93,9 +93,9 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     pMesh.instanceColor.needsUpdate = true;
   };
 
-  const dumm = new THREE.Object3D(), crackMat = new THREE.LineBasicMaterial({ color: 0x1b1f33, transparent: true }), crackGlow = new THREE.LineBasicMaterial({ color: 0xeafcff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const dumm = new THREE.Object3D(), crackMat = new THREE.LineBasicMaterial({ color: 0x07061c, transparent: true }), crackGlow = new THREE.LineBasicMaterial({ color: 0x6ae8ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const shock = (x, z, R, o = {}) => {
-    const g = new THREE.Group(), y = heightAt(x, z), col = o.color || 0xbff4ff; g.position.set(x, y + .25, z);
+    const g = new THREE.Group(), y = heightAt(x, z), col = o.color || 0x6ac8ff; g.position.set(x, y + .25, z);
     const ringMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const ring = new THREE.Mesh(geo.ring, ringMat); ring.renderOrder = 4; g.add(ring);
     const ring2 = new THREE.Mesh(geo.disc, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .35, blending: THREE.AdditiveBlending, depthWrite: false })); ring2.renderOrder = 3; g.add(ring2);
@@ -126,26 +126,26 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     }, () => { ringMat.dispose(); ring2.material.dispose(); im.dispose(); ik.dispose(); scene.remove(lines, lines2); lg.dispose(); });
   };
 
-  const arcMat = () => new THREE.MeshBasicMaterial({ color: 0xdff6ff, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const arcMat = () => new THREE.MeshBasicMaterial({ color: 0xc8f4ff, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const slashFx = (pos, face, wide) => {
     const m = arcMat(), a = new THREE.Mesh(geo.arc, m), g = new THREE.Group(); g.add(a); g.position.copy(pos).setY(pos.y + 1.4); g.rotation.set(0, face, wide ? 0 : (Math.random() < .5 ? .5 : -.5) * .6);
     g.scale.setScalar(wide ? 1.4 : 1);
     addFx(g, .25, (t) => { const k = t / .25; m.opacity = .9 * (1 - k); g.scale.setScalar((wide ? 1.4 : 1) * (1 + k * .25)); }, () => m.dispose());
   };
   const mkTele = (kind, w, h) => {
-    const g = new THREE.Group(), edge = new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: .9, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), fill = new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: .34, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+    const g = new THREE.Group(), edge = new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .9, depthTest: false, depthWrite: false, side: THREE.DoubleSide }), fill = new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .34, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
     let f;
-    if (kind === 'circle') { const e = new THREE.Mesh(geo.ring, edge); e.scale.setScalar(w); g.add(e); const base = new THREE.Mesh(geo.disc, new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: .12, depthTest: false, depthWrite: false })); base.scale.setScalar(w); g.add(base); f = new THREE.Mesh(geo.disc, fill); g.add(f); g.userData.set = k => f.scale.setScalar(Math.max(.01, w * k)); g.userData.extra = base.material; }
-    else { const gg = new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(0, 0, h / 2); const e = new THREE.LineSegments(new THREE.EdgesGeometry(gg), new THREE.LineBasicMaterial({ color: 0xff3355 })); g.add(e); f = new THREE.Mesh(gg, fill); g.add(f); g.userData.set = k => f.scale.set(1, 1, Math.max(.01, k)); g.userData.extra = e.material; }
+    if (kind === 'circle') { const e = new THREE.Mesh(geo.ring, edge); e.scale.setScalar(w); g.add(e); const base = new THREE.Mesh(geo.disc, new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .12, depthTest: false, depthWrite: false })); base.scale.setScalar(w); g.add(base); f = new THREE.Mesh(geo.disc, fill); g.add(f); g.userData.set = k => f.scale.setScalar(Math.max(.01, w * k)); g.userData.extra = base.material; }
+    else { const gg = new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2).translate(0, 0, h / 2); const e = new THREE.LineSegments(new THREE.EdgesGeometry(gg), new THREE.LineBasicMaterial({ color: 0xff2d8a })); g.add(e); f = new THREE.Mesh(gg, fill); g.add(f); g.userData.set = k => f.scale.set(1, 1, Math.max(.01, k)); g.userData.extra = e.material; }
     g.traverse(o => { o.renderOrder = 6; });
     g.userData.dispose = () => { scene.remove(g); edge.dispose(); fill.dispose(); g.userData.extra.dispose(); };
     scene.add(g); return g;
   };
 
-  const barBg = new THREE.MeshBasicMaterial({ color: PALETTE.ink, depthTest: false, transparent: true }), barFg = new THREE.MeshBasicMaterial({ color: 0xff8d7a, depthTest: false, transparent: true });
-  const iceGeo = new THREE.IcosahedronGeometry(1, 1), iceMat = new THREE.MeshBasicMaterial({ color: 0xbff4ff, transparent: true, opacity: .45, depthWrite: false });
-  const iceInk = new THREE.MeshBasicMaterial({ color: 0x4aa8d8, transparent: true, opacity: .8, wireframe: true });
-  const glowMats = { imp: new THREE.MeshBasicMaterial({ color: 0xd04bff, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }), golem: new THREE.MeshBasicMaterial({ color: 0xb34bff, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false }), boss: new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }) };
+  const barBg = new THREE.MeshBasicMaterial({ color: PALETTE.ink, depthTest: false, transparent: true }), barFg = new THREE.MeshBasicMaterial({ color: 0x39ff88, depthTest: false, transparent: true });
+  const iceGeo = new THREE.IcosahedronGeometry(1, 1), iceMat = new THREE.MeshBasicMaterial({ color: 0x7ad0ff, transparent: true, opacity: .5, depthWrite: false });
+  const iceInk = new THREE.MeshBasicMaterial({ color: 0xc8f4ff, transparent: true, opacity: .9, wireframe: true });
+  const glowMats = { imp: new THREE.MeshBasicMaterial({ color: 0xff3df0, transparent: true, opacity: .62, blending: THREE.AdditiveBlending, depthWrite: false }), golem: new THREE.MeshBasicMaterial({ color: 0xa04bff, transparent: true, opacity: .58, blending: THREE.AdditiveBlending, depthWrite: false }), boss: new THREE.MeshBasicMaterial({ color: 0xff2d8a, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }) };
   const enemies = [], projs = [];
   const nameOf = { imp: 'idle', golem: 'idle', boss: 'idle' };
 
@@ -158,7 +158,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     const ice = new THREE.Mesh(iceGeo, iceMat); ice.visible = false; ice.scale.set(e.radius * 1.5, c.size * .55, e.radius * 1.5); ice.position.y = c.size * .5; ch.root.add(ice); e.ice = ice;
     if (si >= 0) SS[si].alive++;
     ch.root.position.copy(e.pos); ch.root.scale.setScalar(instant ? 1 : .01);
-    burst(e.pos, type === 'boss' ? 40 : 10, [0x2a1638, 0x7a2fa8, PALETTE.sludgeGlow], 4, .25, .8, 5);
+    burst(e.pos, type === 'boss' ? 40 : 10, [0x39ff88, 0xff2dd0, 0x7a2fa8], 4, .25, .8, 5);
     enemies.push(e); if (!instant) audio.spawn(); return e;
   }
   const setEn = (e, n) => { if (e.name !== n) { e.name = n; e.ch.setState(n); } };
@@ -171,7 +171,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     e.punch = 1; e.kv.addScaledVector(dir, kb * (e.boss ? .08 : e.type === 'golem' ? .55 : 1));
     if (freeze) e.freeze = Math.max(e.freeze, e.boss ? Math.min(1.2, freeze * .4) : freeze);
     const sp = e.pos.clone().setY(e.pos.y + e.cfg.size * .55);
-    burst(sp, e.boss ? 10 : 8, [0x2a1638, PALETTE.sludgeGlow, 0xeafcff], 6, .2, .5, 4);
+    burst(sp, e.boss ? 10 : 8, [0x39ff88, 0xff2dd0, 0xeafcff], 6, .2, .5, 4);
     audio.hit(kb > 8); S.hitstop = Math.max(S.hitstop, e.boss ? .045 : .06); S.trauma = Math.min(1, S.trauma + .18);
     e.bar.visible = true;
     const sv = new V3().copy(sp).project(camera); if (sv.z < 1) hud.dmg((sv.x * .5 + .5) * innerWidth, (-sv.y * .5 + .5) * innerHeight, Math.round(amt), amt > 25);
@@ -181,7 +181,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
   function killEnemy(e) {
     e.dead = true; e.deadT = 0; setEn(e, 'death'); e.bar.visible = false; e.glow.visible = false; if (e.tele) { e.tele.userData.dispose(); e.tele = null; } e.ice.visible = false;
     S.kills++; S.water += e.cfg.water; audio.kill(); audio.xp();
-    burst(e.pos.clone().setY(e.pos.y + e.cfg.size * .5), e.boss ? 90 : e.type === 'golem' ? 36 : 18, [0x2a1638, 0x7a2fa8, PALETTE.sludgeGlow, 0x5a1f2e], e.boss ? 14 : 8, e.boss ? .5 : .3, .9, 6);
+    burst(e.pos.clone().setY(e.pos.y + e.cfg.size * .5), e.boss ? 90 : e.type === 'golem' ? 36 : 18, [0x39ff88, 0xff2dd0, 0x7a2fa8, 0xc41a7e], e.boss ? 14 : 8, e.boss ? .5 : .3, .9, 6);
     if (e.si >= 0) SS[e.si].alive--;
     if (stats.siphon) p.hp = Math.min(p.maxHp, p.hp + stats.siphon);
     p.xp += e.cfg.xp;
@@ -194,7 +194,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (p.inv > 0 || p.dashT > 0 || S.mode !== 'play') return;
     p.hp -= amt; p.inv = .7; p.hurtT = .3; audio.hurt(); hud.hurt(); S.trauma = Math.min(1, S.trauma + .45); S.hitstop = Math.max(S.hitstop, .05);
     if (from) { const d = p.pos.clone().sub(from).setY(0).normalize(); p.vel.addScaledVector(d, kb); }
-    burst(p.pos.clone().setY(p.pos.y + 1.2), 12, [0xeafcff, 0xff8d7a], 5, .18, .5, 4);
+    burst(p.pos.clone().setY(p.pos.y + 1.2), 12, [0xeafcff, 0xff2d8a], 5, .18, .5, 4);
     if (p.hp <= 0) { p.hp = 0; S.mode = 'lose'; S.endT = 1.2; lofiSet('hit', true); audio.lose(); document.exitPointerLock && document.exitPointerLock(); }
   }
   function win() {
@@ -224,7 +224,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
       if (!p.slamDone && p.slamT < .34) {
         p.slamDone = true; const R = 8.5 * stats.slamR;
         shock(p.pos.x, p.pos.z, R); audio.slam(); S.trauma = Math.min(1, S.trauma + .8); S.hitstop = Math.max(S.hitstop, .09);
-        burst(p.pos.clone().setY(p.pos.y + .3), 60, [0xeafcff, 0xbff4ff, 0xffffff, 0xc98a5e, 0x8fd0ee], 15, .15, 1.0, 9); burst(p.pos.clone().setY(p.pos.y + .3), 20, [0xeafcff, 0x4aa8d8], 7, .3, .9, 14, 20);
+        burst(p.pos.clone().setY(p.pos.y + .3), 60, [0xeafcff, 0x6ac8ff, 0xffffff, 0x4da2ff, 0xb06bff], 15, .15, 1.0, 9); burst(p.pos.clone().setY(p.pos.y + .3), 20, [0xeafcff, 0x4da2ff], 7, .3, .9, 14, 20);
         for (const e of enemies) { if (e.dead) continue; const d = e.pos.clone().sub(p.pos).setY(0), l = d.length(); if (l < R + e.radius) hurtEnemy(e, 28 * stats.slamDmg / 1, l > .01 ? d.divideScalar(l) : new V3(0, 0, 1), 14 * (1 - l / (R + 1) * .5), stats.freeze, { noScale: false }); }
       }
       return;
@@ -309,10 +309,10 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     const c = e.cfg; if (e.tele) { e.tele.userData.dispose(); e.tele = null; }
     e.st = 'recover'; e.t = c.rec * (e.phase2 ? .7 : 1);
     if (e.atk === 'bite') { if (dist < c.atkRange + .5) hurtPlayer(c.dmg, e.pos, 7); setEn(e, 'walk'); e.name = 'walk'; return; }
-    if (e.atk === 'smash') { shock(e.atkPos.x, e.atkPos.z, 3.7, { color: 0xd9a5ff, mat: spikeMatSlud, spike: .7, life: .8 }); S.trauma = Math.min(1, S.trauma + .35); audio.stomp(); if (Math.hypot(p.pos.x - e.atkPos.x, p.pos.z - e.atkPos.z) < 3.7 + p.radius * .5) hurtPlayer(c.dmg, e.atkPos, 9); e.name = ''; setEn(e, 'idle'); return; }
-    if (e.atk === 'stomp') { shock(e.pos.x, e.pos.z, 10, { color: 0xff5a77, mat: spikeMatDark, spike: 1.3, life: 1.1 }); S.trauma = 1; audio.stomp(); S.hitstop = .08; if (dist < 10 + p.radius * .5) hurtPlayer(c.dmg, e.pos, 14); e.t = 1.4; return; }
+    if (e.atk === 'smash') { shock(e.atkPos.x, e.atkPos.z, 3.7, { color: 0xc08bff, mat: spikeMatSlud, spike: .7, life: .8 }); S.trauma = Math.min(1, S.trauma + .35); audio.stomp(); if (Math.hypot(p.pos.x - e.atkPos.x, p.pos.z - e.atkPos.z) < 3.7 + p.radius * .5) hurtPlayer(c.dmg, e.atkPos, 9); e.name = ''; setEn(e, 'idle'); return; }
+    if (e.atk === 'stomp') { shock(e.pos.x, e.pos.z, 10, { color: 0xff4da0, mat: spikeMatDark, spike: 1.3, life: 1.1 }); S.trauma = 1; audio.stomp(); S.hitstop = .08; if (dist < 10 + p.radius * .5) hurtPlayer(c.dmg, e.pos, 14); e.t = 1.4; return; }
     if (e.atk === 'wave') {
-      const f = dirF(e.face), g = new THREE.Mesh(new THREE.BoxGeometry(5.5, 1.4, .8), new THREE.MeshBasicMaterial({ color: 0xff5a6a, transparent: true, opacity: .55, depthWrite: false })); g.position.set(e.pos.x + f.x * 3, 0, e.pos.z + f.z * 3); g.rotation.y = e.face; scene.add(g); projs.push({ m: g, dir: f, t: 0, hit: false, dmg: 24 }); audio.stomp(); S.trauma = Math.min(1, S.trauma + .4); return;
+      const f = dirF(e.face), g = new THREE.Mesh(new THREE.BoxGeometry(5.5, 1.4, .8), new THREE.MeshBasicMaterial({ color: 0xff3d9a, transparent: true, opacity: .6, depthWrite: false })); g.position.set(e.pos.x + f.x * 3, 0, e.pos.z + f.z * 3); g.rotation.y = e.face; scene.add(g); projs.push({ m: g, dir: f, t: 0, hit: false, dmg: 24 }); audio.stomp(); S.trauma = Math.min(1, S.trauma + .4); return;
     }
     if (e.atk === 'summon') { for (let k = 0; k < (e.phase2 ? 5 : 3); k++) { const a = rnd(0, 6.283); spawnEnemy('imp', e.pos.x + Math.cos(a) * 6, e.pos.z + Math.sin(a) * 6, e.si); } S.trauma = .5; e.t = 1.2; }
   }
@@ -344,7 +344,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     q.done = true; q.active = false; setClean(q.i, true); const s = q.s;
     S.water += q.volume; audio.purify();
     const c = new V3(s.x, heightAt(s.x, s.z) + .3, s.z);
-    shock(s.x, s.z, s.radius * 1.5, { color: 0x38e8d8, spike: 1.4, life: 1.6 }); burst(c, 120, [0x38c2c0, 0xbff4ff, 0xeafcff, 0x7ee8e0], s.radius * .9, .35, 1.4, 14, 8);
+    shock(s.x, s.z, s.radius * 1.5, { color: 0x4dc8ff, spike: 1.4, life: 1.6 }); burst(c, 120, [0x2fc8ff, 0x6ac8ff, 0xeafcff, 0x39ff88], s.radius * .9, .35, 1.4, 14, 8);
     S.trauma = Math.min(1, S.trauma + .5); p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .3);
     const left = SS.filter(o => !o.done).length;
     hud.toast('STREAM PURIFIED', left ? left + ' MORE TO THAW' : 'THE SOURCE AWAKENS', 3);
@@ -358,7 +358,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     hud.toast('THE GRIME TITAN RISES', 'AT THE LARGEST SOURCE', 3.4); audio.roar(); S.trauma = 1;
   }
 
-  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffc36b, transparent: true, opacity: .28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, 70, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0x39ff88, transparent: true, opacity: .32, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   scene.add(beacon);
 
   function applyUpgrade() {
@@ -404,7 +404,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
     if (Math.abs(camera.fov - cam.fov) > .05) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
   }
 
-  function start() { audio.resume(); S.mode = 'play'; if (dom && dom.requestPointerLock) dom.requestPointerLock()?.catch?.(() => {}); hud.toast('THE ICE CRACKS', 'FIND THE SLUDGE STREAMS (FOLLOW THE AMBER BEACON)', 4); audio.setIntensity(0); }
+  function start() { audio.resume(); S.mode = 'play'; if (dom && dom.requestPointerLock) dom.requestPointerLock()?.catch?.(() => {}); hud.toast('THE ICE CRACKS', 'FIND THE SLUDGE STREAMS (FOLLOW THE GREEN BEACON)', 4); audio.setIntensity(0); }
   hud.showTitle(start);
   const qs = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
   const bot = qs.has('bot');
@@ -452,7 +452,7 @@ export function createGame({ scene, camera, renderer, world } = {}) {
         const q = projs[i]; q.t += dt; q.m.position.addScaledVector(q.dir, 17 * dt); q.m.position.y = heightAt(q.m.position.x, q.m.position.z) + .9; q.m.scale.y = 1 + Math.sin(q.t * 30) * .15;
         const d = p.pos.clone().sub(q.m.position).setY(0), lat = d.dot(new V3(q.dir.z, 0, -q.dir.x)), fw = d.dot(q.dir);
         if (!q.hit && Math.abs(lat) < 3.1 && Math.abs(fw) < 1.3) { q.hit = true; hurtPlayer(q.dmg, q.m.position, 10); }
-        if (Math.random() < .5) burst(q.m.position, 1, [0xff3355, 0x5a1f2e], 2, .3, .5, 2);
+        if (Math.random() < .5) burst(q.m.position, 1, [0xff2d8a, 0xc41a7e], 2, .3, .5, 2);
         if (q.t > 1.9) { scene.remove(q.m); q.m.geometry.dispose(); q.m.material.dispose(); projs.splice(i, 1); }
       }
       if (S.levelPending > 0) applyUpgrade();

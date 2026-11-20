@@ -26,7 +26,11 @@ export function installPost(renderer,{onBefore}={}){
         for(int i=0;i<4;i++){float zn=lz(vUv+o[i]*px*1.1);e=max(e,smoothstep(.05,.12,(zn-zc)/zc));}
         float fade=mix(.95,.4,smoothstep(120.,500.,zc))*smoothstep(10.,35.,zc);
         c=mix(c,ink,e*fade);
-        vec2 q=vUv-.5;c*=1.-dot(q,q)*.45;
+        float lum=dot(c,vec3(.299,.587,.114));
+        c=mix(vec3(lum),c,1.18);
+        c+=vec3(.015,.01,.06)*(1.-smoothstep(0.,.5,lum));
+        c*=mix(vec3(.95,.97,1.06),vec3(1.),smoothstep(.2,.8,lum));
+        vec2 q=vUv-.5;c=mix(c,vec3(.02,.01,.1),clamp(dot(q,q)*1.1,0.,.7));
         gl_FragColor=vec4(c,1.);
         #include <colorspace_fragment>
       }`,
